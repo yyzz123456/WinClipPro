@@ -96,7 +96,7 @@ bool AppWindow::create() {
             struct { int State, Flags, Color, AnimId; } p{};
             p.State = 4;   // ACCENT_ENABLE_ACRYLICBLURBEHIND
             p.Flags = 2;   // full acrylic noise texture
-            p.Color = dark ? 0x40000000 : 0x60FFFFFF;
+            p.Color = dark ? 0x10000000 : 0x20FFFFFF;
             struct { int A; void* D; ULONG S; } d{19, &p, sizeof(p)};
             fn(m_hwnd, &d);
         }
