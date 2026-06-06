@@ -1,0 +1,45 @@
+# Build outputs
+*.exe
+*.obj
+*.o
+*.dll
+*.pdb
+*.ilk
+*.lib
+*.exp
+*.suo
+*.sln.docstates
+*.user
+*.userosscache
+*.sln.docstates
+*.userprefs
+Debug/
+Release/
+x64/
+x86/
+.vs/
+out/
+build/
+
+# Java
+*.class
+*.jar
+*.war
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Temp
+*.tmp
+*.swp
+*.swo
+*~
+.temp_save/
+untitled/
