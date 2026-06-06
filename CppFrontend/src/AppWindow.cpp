@@ -67,7 +67,7 @@ bool AppWindow::create() {
     m_hwnd = CreateWindowExW(
         WS_EX_TOOLWINDOW | WS_EX_LAYERED,
         CLASS_NAME, L"Clipper",
-        WS_POPUP | WS_SYSMENU,
+        WS_POPUP | WS_THICKFRAME | WS_SYSMENU,
         m_targetX, m_targetY, m_targetW, m_targetH,
         nullptr, nullptr, m_hInstance, nullptr);
 
@@ -79,13 +79,6 @@ bool AppWindow::create() {
     DwmSetWindowAttribute(m_hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &useDark, sizeof(useDark));
     int backdrop = 3; // Mica - stronger than acrylic
     DwmSetWindowAttribute(m_hwnd, (DWMWINDOWATTRIBUTE)38, &backdrop, sizeof(backdrop));
-
-    MARGINS margins{-1};
-    DwmExtendFrameIntoClientArea(m_hwnd, &margins);
-
-    // DWM native rounded corners
-    int cornerPref = 1; // DWMWCP_ROUND
-    DwmSetWindowAttribute(m_hwnd, (DWMWINDOWATTRIBUTE)33, &cornerPref, sizeof(cornerPref));
 
     DWM_BLURBEHIND bb{};
     bb.dwFlags = DWM_BB_ENABLE | DWM_BB_BLURREGION;
@@ -112,7 +105,7 @@ bool AppWindow::create() {
             };
             AccentPolicy policy{};
             policy.AccentState = 4; // ACCENT_ENABLE_ACRYLICBLURBEHIND
-            policy.GradientColor = dark ? 0xA0000000 : 0xD0FFFFFF;
+            policy.GradientColor = dark ? 0xB0000000 : 0xE0FFFFFF;
             WinCompAttrData data{};
             data.Attribute = 19; // WCA_ACCENT_POLICY
             data.pData = &policy;
@@ -121,13 +114,8 @@ bool AppWindow::create() {
         }
     }
 
-    // Flush DWM then apply rounded region
-    DwmFlush();
     HRGN hRgn = CreateRoundRectRgn(0, 0, m_targetW + 1, m_targetH + 1, 12, 12);
     SetWindowRgn(m_hwnd, hRgn, TRUE);
-    SetWindowPos(m_hwnd, nullptr, 0, 0, 0, 0,
-                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
-    DwmFlush();
 
     return true;
 }
