@@ -41,7 +41,7 @@ bool AppWindow::create() {
 
     WNDCLASSEXW wc{};
     wc.cbSize = sizeof(wc);
-    wc.style = CS_HREDRAW | CS_VREDRAW;
+    wc.style = CS_HREDRAW | CS_VREDRAW | 0x00020000; // CS_DROPSHADOW
     wc.lpfnWndProc = WndProc;
     wc.hInstance = m_hInstance;
     wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
@@ -86,16 +86,63 @@ bool AppWindow::create() {
 }
 
 void AppWindow::show() {
+    if (IsWindowVisible(m_hwnd)) return;
+
     RECT rc;
     GetClientRect(m_hwnd, &rc);
     onSize(rc.right, rc.bottom);
     refreshList();
-    ShowWindow(m_hwnd, SW_SHOW);
+
+    RECT target;
+    GetWindowRect(m_hwnd, &target);
+    int tw = target.right - target.left;
+    int th = target.bottom - target.top;
+
+    RECT workArea;
+    SystemParametersInfo(SPI_GETWORKAREA, 0, &workArea, 0);
+
+    // Start below the screen
+    SetWindowPos(m_hwnd, nullptr, target.left, workArea.bottom, tw, th,
+                 SWP_NOZORDER | SWP_NOACTIVATE);
+    ShowWindow(m_hwnd, SW_SHOWNOACTIVATE);
+
+    // Slide up
+    const int STEPS = 10;
+    const int DURATION = 180;
+    int stepMs = DURATION / STEPS;
+    for (int i = 1; i <= STEPS; i++) {
+        int curY = workArea.bottom - (workArea.bottom - target.top) * i / STEPS;
+        SetWindowPos(m_hwnd, nullptr, target.left, curY, tw, th,
+                     SWP_NOZORDER | SWP_NOACTIVATE);
+        Sleep(stepMs);
+    }
+
+    SetWindowPos(m_hwnd, nullptr, target.left, target.top, tw, th, SWP_NOZORDER);
     SetForegroundWindow(m_hwnd);
     SetFocus(m_searchBox);
 }
 
 void AppWindow::hide() {
+    if (!IsWindowVisible(m_hwnd)) return;
+
+    RECT winRect;
+    GetWindowRect(m_hwnd, &winRect);
+    int tw = winRect.right - winRect.left;
+    int th = winRect.bottom - winRect.top;
+
+    RECT workArea;
+    SystemParametersInfo(SPI_GETWORKAREA, 0, &workArea, 0);
+
+    const int STEPS = 7;
+    const int DURATION = 120;
+    int stepMs = DURATION / STEPS;
+    for (int i = 1; i <= STEPS; i++) {
+        int curY = winRect.top + (workArea.bottom - winRect.top) * i / STEPS;
+        SetWindowPos(m_hwnd, nullptr, winRect.left, curY, tw, th,
+                     SWP_NOZORDER | SWP_NOACTIVATE);
+        Sleep(stepMs);
+    }
+
     ShowWindow(m_hwnd, SW_HIDE);
 }
 
