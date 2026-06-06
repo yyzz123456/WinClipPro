@@ -35,7 +35,6 @@ bool AppWindow::create(int width, int height) {
     wc.lpszClassName = CLASS_NAME;
     RegisterClassExW(&wc);
 
-    // Get screen work area (excludes taskbar)
     RECT workArea;
     SystemParametersInfo(SPI_GETWORKAREA, 0, &workArea, 0);
 
@@ -45,7 +44,7 @@ bool AppWindow::create(int width, int height) {
     m_hwnd = CreateWindowExW(
         WS_EX_TOOLWINDOW,
         CLASS_NAME, L"Clipper",
-        WS_OVERLAPPEDWINDOW,
+        WS_POPUP | WS_THICKFRAME | WS_SYSMENU,
         x, y, width, height,
         nullptr, nullptr, m_hInstance, nullptr);
 
@@ -53,6 +52,7 @@ bool AppWindow::create(int width, int height) {
 
     setWindowCorners();
     applyAcrylic();
+    updateWindowRegion(width, height);
 
     return true;
 }
@@ -78,8 +78,6 @@ void AppWindow::toggle() {
         show();
 }
 
-// ---- Window Procedure ----
-
 LRESULT CALLBACK AppWindow::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     if (s_instance && s_instance->m_hwnd == hwnd)
         return s_instance->handleMsg(msg, wp, lp);
@@ -91,15 +89,26 @@ LRESULT AppWindow::handleMsg(UINT msg, WPARAM wp, LPARAM lp) {
         case WM_CREATE: onCreate(); return 0;
         case WM_SIZE:   onSize(LOWORD(lp), HIWORD(lp)); return 0;
         case WM_COMMAND:
+            if (HIWORD(wp) == BN_CLICKED && LOWORD(wp) == ID_CLOSE) {
+                hide();
+                return 0;
+            }
             if (HIWORD(wp) == EN_CHANGE && LOWORD(wp) == ID_SEARCH) onSearch();
             return 0;
+        case WM_CTLCOLORBTN:
+            if ((HWND)lp == m_closeBtn) {
+                HDC hdc = (HDC)wp;
+                SetTextColor(hdc, RGB(240, 240, 240));
+                SetBkMode(hdc, TRANSPARENT);
+                return (LRESULT)GetStockObject(HOLLOW_BRUSH);
+            }
+            break;
         case WM_NOTIFY:
             if (((NMHDR*)lp)->code == NM_RCLICK && ((NMHDR*)lp)->idFrom == ID_LIST) {
                 POINT pt;
                 GetCursorPos(&pt);
                 onContextMenu(pt);
             }
-            // Double-click to copy
             if (((NMHDR*)lp)->code == NM_DBLCLK && ((NMHDR*)lp)->idFrom == ID_LIST) {
                 NMITEMACTIVATE* nmia = (NMITEMACTIVATE*)lp;
                 if (nmia->iItem >= 0 && nmia->iItem < (int)m_items.size())
@@ -111,9 +120,6 @@ LRESULT AppWindow::handleMsg(UINT msg, WPARAM wp, LPARAM lp) {
                 POINT pt = {LOWORD(lp), HIWORD(lp)};
                 onContextMenu(pt);
             }
-            return 0;
-        case WM_CLOSE:
-            hide();
             return 0;
         case WM_ACTIVATE:
             if (LOWORD(wp) == WA_INACTIVE) hide();
@@ -136,24 +142,30 @@ LRESULT AppWindow::handleMsg(UINT msg, WPARAM wp, LPARAM lp) {
 // ---- Initialization ----
 
 void AppWindow::onCreate() {
-    // Search box
     m_searchBox = CreateWindowExW(
         0, L"EDIT", L"",
         WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL | WS_BORDER,
         12, 12, 0, 28,
         m_hwnd, (HMENU)(UINT_PTR)ID_SEARCH, m_hInstance, nullptr);
 
-    // Set modern font
     HFONT hFont = CreateFontW(16, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
                               DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
                               CLEARTYPE_QUALITY, DEFAULT_PITCH, L"Segoe UI Variable");
     SendMessage(m_searchBox, WM_SETFONT, (WPARAM)hFont, TRUE);
 
-    // Placeholder text
     SendMessageW(m_searchBox, EM_SETCUEBANNER, FALSE,
                  (LPARAM)L"Type to search clipboard history...");
 
-    // List view
+    m_closeBtn = CreateWindowExW(
+        0, L"BUTTON", L"X",
+        WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_FLAT,
+        0, 0, 28, 28,
+        m_hwnd, (HMENU)(UINT_PTR)ID_CLOSE, m_hInstance, nullptr);
+    m_closeFont = CreateFontW(14, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
+                              DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+                              CLEARTYPE_QUALITY, DEFAULT_PITCH, L"Segoe UI Variable");
+    SendMessage(m_closeBtn, WM_SETFONT, (WPARAM)m_closeFont, TRUE);
+
     m_listView = CreateWindowExW(
         0, WC_LISTVIEWW, L"",
         WS_CHILD | WS_VISIBLE | LVS_REPORT | LVS_SINGLESEL |
@@ -164,13 +176,11 @@ void AppWindow::onCreate() {
     ListView_SetExtendedListViewStyle(m_listView,
         LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER);
 
-    // Columns
     LVCOLUMNW col{};
     col.mask = LVCF_WIDTH;
     col.cx = 500;
     ListView_InsertColumn(m_listView, 0, &col);
 
-    // Status bar
     m_statusBar = CreateWindowExW(
         0, STATUSCLASSNAMEW, L"",
         WS_CHILD | WS_VISIBLE | SBARS_SIZEGRIP,
@@ -179,18 +189,20 @@ void AppWindow::onCreate() {
 }
 
 void AppWindow::onSize(int width, int height) {
+    SetWindowPos(m_closeBtn, nullptr, width - 42, 10, 28, 28, SWP_NOZORDER);
     SetWindowPos(m_searchBox, nullptr, 0, 0,
-                 width - 24, 28, SWP_NOMOVE | SWP_NOZORDER);
+                 width - 58, 28, SWP_NOMOVE | SWP_NOZORDER);
     SetWindowPos(m_listView, nullptr, 0, 0,
                  width - 24, height - 90, SWP_NOMOVE | SWP_NOZORDER);
     SendMessage(m_listView, WM_SIZE, 0, 0);
     SendMessage(m_statusBar, WM_SIZE, 0, 0);
 
-    // Update column width
     LVCOLUMNW col{};
     col.mask = LVCF_WIDTH;
     col.cx = width - 40;
     ListView_SetColumn(m_listView, 0, &col);
+
+    updateWindowRegion(width, height);
 }
 
 // ---- Data Loading ----
@@ -242,9 +254,7 @@ void AppWindow::updateListView(const std::vector<ClipItem>& items) {
         lvi.iItem = (int)i;
         lvi.lParam = (LPARAM)i;
 
-        // Show truncated text + timestamp
         std::string display = items[i].content;
-        // Use first line only
         size_t nl = display.find('\n');
         if (nl != std::string::npos) display = display.substr(0, nl);
         if (display.length() > 80) display = display.substr(0, 77) + "...";
@@ -322,7 +332,7 @@ void AppWindow::copyToClipboard(int index) {
                 GlobalUnlock(hMem);
                 OpenClipboard(m_hwnd);
                 EmptyClipboard();
-                SetClipboardData(CF_HDROP, hMem); // Simplified - real CF_HDROP needs DROPFILES struct
+                SetClipboardData(CF_HDROP, hMem);
                 CloseClipboard();
             }
         } catch (...) {}
@@ -337,7 +347,6 @@ void AppWindow::pinItem(int index) {
     int newState = item.pinned ? 0 : 1;
     m_ipc.pinItem(item.id, newState);
     item.pinned = !item.pinned;
-    // Refresh to re-sort
     wchar_t text[256];
     GetWindowTextW(m_searchBox, text, 256);
     refreshList(toNarrow(text));
@@ -359,25 +368,20 @@ void AppWindow::applyAcrylic() {
     BOOL useDark = FALSE;
     DwmSetWindowAttribute(m_hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE,
                           &useDark, sizeof(useDark));
-
     int backdrop = 4;
     DwmSetWindowAttribute(m_hwnd, (DWMWINDOWATTRIBUTE)38,
                           &backdrop, sizeof(backdrop));
-
-    DWM_BLURBEHIND bb{};
-    bb.dwFlags = DWM_BB_ENABLE;
-    bb.fEnable = TRUE;
-    DwmEnableBlurBehindWindow(m_hwnd, &bb);
-
-    MARGINS margins{-1};
-    DwmExtendFrameIntoClientArea(m_hwnd, &margins);
 }
 
 void AppWindow::setWindowCorners() {
-    // DWMWA_WINDOW_CORNER_PREFERENCE = 33, DWMWCP_ROUND = 1
     int cornerPref = 1;
     DwmSetWindowAttribute(m_hwnd, (DWMWINDOWATTRIBUTE)33,
                           &cornerPref, sizeof(cornerPref));
+}
+
+void AppWindow::updateWindowRegion(int width, int height) {
+    HRGN hRgn = CreateRoundRectRgn(0, 0, width + 1, height + 1, 16, 16);
+    SetWindowRgn(m_hwnd, hRgn, TRUE);
 }
 
 // ---- Utilities ----

@@ -43,6 +43,7 @@ private:
     void applyAcrylic();
     void updateListView(const std::vector<ClipItem>& items);
     void setWindowCorners();
+    void updateWindowRegion(int width, int height);
     static std::string formatTimestamp(long long ts);
     static std::wstring toWide(const std::string& s);
     static std::string toNarrow(const std::wstring& ws);
@@ -51,6 +52,8 @@ private:
     HWND m_searchBox = nullptr;
     HWND m_listView = nullptr;
     HWND m_statusBar = nullptr;
+    HWND m_closeBtn = nullptr;
+    HFONT m_closeFont = nullptr;
     HINSTANCE m_hInstance;
     IpcClient m_ipc;
     std::vector<ClipItem> m_items;
@@ -59,6 +62,7 @@ private:
 
     static constexpr int ID_SEARCH = 1001;
     static constexpr int ID_LIST = 1002;
+    static constexpr int ID_CLOSE = 1003;
     static constexpr int IDM_COPY = 2001;
     static constexpr int IDM_PIN = 2002;
     static constexpr int IDM_DELETE = 2003;
