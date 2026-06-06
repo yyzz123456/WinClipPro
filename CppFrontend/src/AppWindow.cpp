@@ -82,11 +82,34 @@ bool AppWindow::create() {
     MARGINS margins{-1};
     DwmExtendFrameIntoClientArea(m_hwnd, &margins);
 
-    DWM_BLURBEHIND bb{};
-    bb.dwFlags = DWM_BB_ENABLE | DWM_BB_BLURREGION;
-    bb.fEnable = TRUE;
-    bb.hRgnBlur = CreateRectRgn(0, 0, m_targetW, m_targetH);
-    DwmEnableBlurBehindWindow(m_hwnd, &bb);
+    // Use SetWindowCompositionAttribute for maximum acrylic blur
+    HMODULE hUser32 = GetModuleHandleW(L"user32.dll");
+    if (hUser32) {
+        using SetWindowCompositionAttribute_t = BOOL(WINAPI*)(HWND, void*);
+        auto pSetWindowCompositionAttribute =
+            (SetWindowCompositionAttribute_t)GetProcAddress(hUser32, "SetWindowCompositionAttribute");
+        if (pSetWindowCompositionAttribute) {
+            struct AccentPolicy {
+                int AccentState;
+                int AccentFlags;
+                int GradientColor;
+                int AnimationId;
+            };
+            struct WinCompAttrData {
+                int Attribute;
+                void* pData;
+                ULONG cbData;
+            };
+            AccentPolicy policy{};
+            policy.AccentState = 4; // ACCENT_ENABLE_ACRYLICBLURBEHIND
+            policy.GradientColor = 0x01000000; // near-transparent for maximum blur
+            WinCompAttrData data{};
+            data.Attribute = 19; // WCA_ACCENT_POLICY
+            data.pData = &policy;
+            data.cbData = sizeof(policy);
+            pSetWindowCompositionAttribute(m_hwnd, &data);
+        }
+    }
 
     return true;
 }
