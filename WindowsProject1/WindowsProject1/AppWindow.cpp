@@ -23,7 +23,6 @@ static bool IsDarkMode() {
 
 AppWindow::AppWindow(HINSTANCE hInstance) : m_hInstance(hInstance) {
     s_instance = this;
-
     INITCOMMONCONTROLSEX icex{};
     icex.dwSize = sizeof(icex);
     icex.dwICC = ICC_LISTVIEW_CLASSES | ICC_STANDARD_CLASSES;
@@ -44,7 +43,6 @@ bool AppWindow::create() {
     wc.lpfnWndProc = WndProc;
     wc.hInstance = m_hInstance;
     wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
-    bool dark = IsDarkMode();
     wc.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
     wc.lpszClassName = CLASS_NAME;
     RegisterClassExW(&wc);
@@ -64,24 +62,22 @@ bool AppWindow::create() {
     m_targetH = height;
 
     m_hwnd = CreateWindowExW(
-        WS_EX_TOOLWINDOW | WS_EX_LAYERED,
+        WS_EX_TOOLWINDOW,
         CLASS_NAME, L"Clipper",
-        WS_OVERLAPPEDWINDOW,
+        WS_POPUP | WS_THICKFRAME | WS_SYSMENU,
         m_targetX, m_targetY, m_targetW, m_targetH,
         nullptr, nullptr, m_hInstance, nullptr);
 
     if (!m_hwnd) return false;
 
-    SetLayeredWindowAttributes(m_hwnd, 0, 230, LWA_ALPHA);
-
+    bool dark = IsDarkMode();
     BOOL useDark = dark ? TRUE : FALSE;
     DwmSetWindowAttribute(m_hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &useDark, sizeof(useDark));
     int backdrop = 3;
     DwmSetWindowAttribute(m_hwnd, (DWMWINDOWATTRIBUTE)38, &backdrop, sizeof(backdrop));
 
-    // Explicitly enable system rounded corners (Win11)
-    int cornerPref = 1; // DWMWCP_ROUND
-    DwmSetWindowAttribute(m_hwnd, (DWMWINDOWATTRIBUTE)33, &cornerPref, sizeof(cornerPref));
+    MARGINS margins{-1};
+    DwmExtendFrameIntoClientArea(m_hwnd, &margins);
 
     DWM_BLURBEHIND bb{};
     bb.dwFlags = DWM_BB_ENABLE | DWM_BB_BLURREGION;
@@ -92,30 +88,22 @@ bool AppWindow::create() {
     HMODULE hUser32 = GetModuleHandleW(L"user32.dll");
     if (hUser32) {
         using SetWindowCompositionAttribute_t = BOOL(WINAPI*)(HWND, void*);
-        auto pSetWindowCompositionAttribute =
-            (SetWindowCompositionAttribute_t)GetProcAddress(hUser32, "SetWindowCompositionAttribute");
-        if (pSetWindowCompositionAttribute) {
-            struct AccentPolicy {
-                int AccentState;
-                int AccentFlags;
-                int GradientColor;
-                int AnimationId;
-            };
-            struct WinCompAttrData {
-                int Attribute;
-                void* pData;
-                ULONG cbData;
-            };
-            AccentPolicy policy{};
-            policy.AccentState = 4; // ACCENT_ENABLE_ACRYLICBLURBEHIND
-            policy.GradientColor = dark ? 0xA0000000 : 0xD0FFFFFF;
-            WinCompAttrData data{};
-            data.Attribute = 19; // WCA_ACCENT_POLICY
-            data.pData = &policy;
-            data.cbData = sizeof(policy);
-            pSetWindowCompositionAttribute(m_hwnd, &data);
+        auto fn = (SetWindowCompositionAttribute_t)GetProcAddress(hUser32, "SetWindowCompositionAttribute");
+        if (fn) {
+            struct { int State, Flags, Color, AnimId; } policy{};
+            policy.State = 4;
+            policy.Color = dark ? 0xA0000000 : 0xD0FFFFFF;
+            struct { int Attr; void* Data; ULONG Size; } data{};
+            data.Attr = 19;
+            data.Data = &policy;
+            data.Size = sizeof(policy);
+            fn(m_hwnd, &data);
         }
     }
+
+    // Rounded corners via region - works on all Windows versions
+    HRGN hRgn = CreateRoundRectRgn(0, 0, m_targetW + 1, m_targetH + 1, 16, 16);
+    SetWindowRgn(m_hwnd, hRgn, TRUE);
 
     return true;
 }
@@ -172,10 +160,8 @@ void AppWindow::hide() {
 }
 
 void AppWindow::toggle() {
-    if (IsWindowVisible(m_hwnd))
-        hide();
-    else
-        show();
+    if (IsWindowVisible(m_hwnd)) hide();
+    else show();
 }
 
 LRESULT CALLBACK AppWindow::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
@@ -199,17 +185,12 @@ LRESULT AppWindow::handleMsg(UINT msg, WPARAM wp, LPARAM lp) {
                 return hit;
             }
         case WM_COMMAND:
-            if (HIWORD(wp) == BN_CLICKED && LOWORD(wp) == ID_CLOSE) {
-                hide();
-                return 0;
-            }
+            if (HIWORD(wp) == BN_CLICKED && LOWORD(wp) == ID_CLOSE) { hide(); return 0; }
             if (HIWORD(wp) == EN_CHANGE && LOWORD(wp) == ID_SEARCH) onSearch();
             return 0;
         case WM_NOTIFY:
             if (((NMHDR*)lp)->code == NM_RCLICK && ((NMHDR*)lp)->idFrom == ID_LIST) {
-                POINT pt;
-                GetCursorPos(&pt);
-                onContextMenu(pt);
+                POINT pt; GetCursorPos(&pt); onContextMenu(pt);
             }
             if (((NMHDR*)lp)->code == NM_DBLCLK && ((NMHDR*)lp)->idFrom == ID_LIST) {
                 NMITEMACTIVATE* nmia = (NMITEMACTIVATE*)lp;
@@ -219,8 +200,7 @@ LRESULT AppWindow::handleMsg(UINT msg, WPARAM wp, LPARAM lp) {
             return 0;
         case WM_CONTEXTMENU:
             if ((HWND)wp == m_listView) {
-                POINT pt = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
-                onContextMenu(pt);
+                POINT pt = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)}; onContextMenu(pt);
             }
             return 0;
         case WM_ACTIVATE:
@@ -230,13 +210,10 @@ LRESULT AppWindow::handleMsg(UINT msg, WPARAM wp, LPARAM lp) {
             if (wp == VK_ESCAPE) hide();
             if (wp == VK_RETURN) {
                 int idx = ListView_GetSelectionMark(m_listView);
-                if (idx >= 0 && idx < (int)m_items.size())
-                    copyToClipboard(idx);
+                if (idx >= 0 && idx < (int)m_items.size()) copyToClipboard(idx);
             }
             return 0;
-        case WM_DESTROY:
-            PostQuitMessage(0);
-            return 0;
+        case WM_DESTROY: PostQuitMessage(0); return 0;
     }
     return DefWindowProc(m_hwnd, msg, wp, lp);
 }
@@ -245,8 +222,7 @@ void AppWindow::onCreate() {
     m_closeBtn = CreateWindowExW(
         0, L"BUTTON", L"X",
         WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-        0, 0, 30, 30,
-        m_hwnd, (HMENU)(UINT_PTR)ID_CLOSE, m_hInstance, nullptr);
+        0, 0, 30, 30, m_hwnd, (HMENU)(UINT_PTR)ID_CLOSE, m_hInstance, nullptr);
     m_closeFont = CreateFontW(15, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
                               DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
                               CLEARTYPE_QUALITY, DEFAULT_PITCH, L"Segoe UI Variable");
@@ -255,70 +231,48 @@ void AppWindow::onCreate() {
     m_searchBox = CreateWindowExW(
         0, L"EDIT", L"",
         WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL | WS_BORDER,
-        12, 12, 0, 28,
-        m_hwnd, (HMENU)(UINT_PTR)ID_SEARCH, m_hInstance, nullptr);
-
+        12, 12, 0, 28, m_hwnd, (HMENU)(UINT_PTR)ID_SEARCH, m_hInstance, nullptr);
     HFONT hFont = CreateFontW(16, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
                               DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
                               CLEARTYPE_QUALITY, DEFAULT_PITCH, L"Segoe UI Variable");
     SendMessage(m_searchBox, WM_SETFONT, (WPARAM)hFont, TRUE);
-
-    SendMessageW(m_searchBox, EM_SETCUEBANNER, FALSE,
-                 (LPARAM)L"Type to search clipboard history...");
+    SendMessageW(m_searchBox, EM_SETCUEBANNER, FALSE, (LPARAM)L"Type to search clipboard history...");
 
     m_listView = CreateWindowExW(
         0, WC_LISTVIEWW, L"",
-        WS_CHILD | WS_VISIBLE | LVS_REPORT | LVS_SINGLESEL |
-        LVS_NOCOLUMNHEADER,
-        12, 48, 0, 0,
-        m_hwnd, (HMENU)(UINT_PTR)ID_LIST, m_hInstance, nullptr);
-
-    ListView_SetExtendedListViewStyle(m_listView,
-        LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER);
-
-    LVCOLUMNW col{};
-    col.mask = LVCF_WIDTH;
-    col.cx = 500;
+        WS_CHILD | WS_VISIBLE | LVS_REPORT | LVS_SINGLESEL | LVS_NOCOLUMNHEADER,
+        12, 48, 0, 0, m_hwnd, (HMENU)(UINT_PTR)ID_LIST, m_hInstance, nullptr);
+    ListView_SetExtendedListViewStyle(m_listView, LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER);
+    LVCOLUMNW col{}; col.mask = LVCF_WIDTH; col.cx = 500;
     ListView_InsertColumn(m_listView, 0, &col);
 
     m_statusBar = CreateWindowExW(
         0, STATUSCLASSNAMEW, L"",
         WS_CHILD | WS_VISIBLE | SBARS_SIZEGRIP,
-        0, 0, 0, 0,
-        m_hwnd, nullptr, m_hInstance, nullptr);
+        0, 0, 0, 0, m_hwnd, nullptr, m_hInstance, nullptr);
 }
 
 void AppWindow::onSize(int width, int height) {
     SetWindowPos(m_closeBtn, nullptr, width - 50, 8, 30, 30, SWP_NOZORDER);
-    SetWindowPos(m_searchBox, nullptr, 0, 0,
-                 width - 66, 28, SWP_NOMOVE | SWP_NOZORDER);
-    SetWindowPos(m_listView, nullptr, 0, 0,
-                 width - 24, height - 90, SWP_NOMOVE | SWP_NOZORDER);
+    SetWindowPos(m_searchBox, nullptr, 0, 0, width - 66, 28, SWP_NOMOVE | SWP_NOZORDER);
+    SetWindowPos(m_listView, nullptr, 0, 0, width - 24, height - 90, SWP_NOMOVE | SWP_NOZORDER);
     SendMessage(m_listView, WM_SIZE, 0, 0);
     SendMessage(m_statusBar, WM_SIZE, 0, 0);
-
-    LVCOLUMNW col{};
-    col.mask = LVCF_WIDTH;
-    col.cx = width - 40;
+    LVCOLUMNW col{}; col.mask = LVCF_WIDTH; col.cx = width - 40;
     ListView_SetColumn(m_listView, 0, &col);
 }
 
 void AppWindow::refreshList(const std::string& filter) {
     std::string response;
-    if (filter.empty()) {
-        response = m_ipc.queryHistory(0, 100);
-    } else {
-        response = m_ipc.searchItems(filter, 100);
-    }
+    if (filter.empty()) response = m_ipc.queryHistory(0, 100);
+    else response = m_ipc.searchItems(filter, 100);
 
     try {
         json j = json::parse(response);
         if (j["status"] != "ok") {
-            SendMessageW(m_statusBar, SB_SETTEXT, 0,
-                (LPARAM)L" Failed to load - is Java backend running?");
+            SendMessageW(m_statusBar, SB_SETTEXT, 0, (LPARAM)L" Failed to load - is Java backend running?");
             return;
         }
-
         m_items.clear();
         for (auto& item : j["data"]["items"]) {
             ClipItem ci;
@@ -330,36 +284,31 @@ void AppWindow::refreshList(const std::string& filter) {
             m_items.push_back(ci);
         }
         updateListView(m_items);
-
-        wchar_t status[64];
-        swprintf_s(status, L" %zu items  |  Alt+, to toggle", m_items.size());
-        SendMessageW(m_statusBar, SB_SETTEXT, 0, (LPARAM)status);
     } catch (...) {
-        SendMessageW(m_statusBar, SB_SETTEXT, 0,
-            (LPARAM)L" Backend not connected - start Java first");
+        SendMessageW(m_statusBar, SB_SETTEXT, 0, (LPARAM)L" Backend not connected - start Java first");
     }
+
+    wchar_t status[64];
+    swprintf_s(status, L" %zu items  |  Alt+, to toggle", m_items.size());
+    SendMessageW(m_statusBar, SB_SETTEXT, 0, (LPARAM)status);
 }
 
 void AppWindow::updateListView(const std::vector<ClipItem>& items) {
     SendMessage(m_listView, WM_SETREDRAW, FALSE, 0);
     ListView_DeleteAllItems(m_listView);
-
     for (size_t i = 0; i < items.size(); i++) {
         LVITEMW lvi{};
         lvi.mask = LVIF_TEXT | LVIF_PARAM;
         lvi.iItem = (int)i;
         lvi.lParam = (LPARAM)i;
-
         std::string display = items[i].content;
         size_t nl = display.find('\n');
         if (nl != std::string::npos) display = display.substr(0, nl);
         if (display.length() > 80) display = display.substr(0, 77) + "...";
-
         std::wstring wDisplay = toWide(display);
         lvi.pszText = (LPWSTR)wDisplay.c_str();
         ListView_InsertItem(m_listView, &lvi);
     }
-
     SendMessage(m_listView, WM_SETREDRAW, TRUE, 0);
     InvalidateRect(m_listView, nullptr, TRUE);
 }
@@ -367,38 +316,30 @@ void AppWindow::updateListView(const std::vector<ClipItem>& items) {
 void AppWindow::onSearch() {
     wchar_t text[256];
     GetWindowTextW(m_searchBox, text, 256);
-    std::string filter = toNarrow(text);
-    refreshList(filter);
+    refreshList(toNarrow(text));
 }
 
 void AppWindow::onContextMenu(POINT pt) {
     int idx = ListView_GetSelectionMark(m_listView);
     if (idx < 0 || idx >= (int)m_items.size()) return;
-
     HMENU hMenu = CreatePopupMenu();
     AppendMenuW(hMenu, MF_STRING, IDM_COPY, L"Copy to clipboard");
-    AppendMenuW(hMenu, MF_STRING, IDM_PIN,
-                m_items[idx].pinned ? L"Unpin" : L"Pin");
+    AppendMenuW(hMenu, MF_STRING, IDM_PIN, m_items[idx].pinned ? L"Unpin" : L"Pin");
     AppendMenuW(hMenu, MF_STRING, IDM_DELETE, L"Delete");
-
     m_menuActive = true;
-    int cmd = TrackPopupMenu(hMenu, TPM_RETURNCMD | TPM_NONOTIFY,
-                             pt.x, pt.y, 0, m_hwnd, nullptr);
+    int cmd = TrackPopupMenu(hMenu, TPM_RETURNCMD | TPM_NONOTIFY, pt.x, pt.y, 0, m_hwnd, nullptr);
     m_menuActive = false;
     DestroyMenu(hMenu);
-
     switch (cmd) {
-        case IDM_COPY:  copyToClipboard(idx); break;
-        case IDM_PIN:   pinItem(idx); break;
+        case IDM_COPY: copyToClipboard(idx); break;
+        case IDM_PIN: pinItem(idx); break;
         case IDM_DELETE: deleteItem(idx); break;
     }
 }
 
 void AppWindow::copyToClipboard(int index) {
     if (index < 0 || index >= (int)m_items.size()) return;
-
     auto& item = m_items[index];
-
     if (item.contentType == "text") {
         std::wstring wText = toWide(item.content);
         size_t size = (wText.size() + 1) * sizeof(wchar_t);
@@ -406,56 +347,40 @@ void AppWindow::copyToClipboard(int index) {
         if (hMem) {
             memcpy(GlobalLock(hMem), wText.c_str(), size);
             GlobalUnlock(hMem);
-            OpenClipboard(m_hwnd);
-            EmptyClipboard();
-            SetClipboardData(CF_UNICODETEXT, hMem);
-            CloseClipboard();
+            OpenClipboard(m_hwnd); EmptyClipboard();
+            SetClipboardData(CF_UNICODETEXT, hMem); CloseClipboard();
         }
     } else if (item.contentType == "files") {
         try {
             json files = json::parse(item.content);
             std::wstring fileList;
-            for (auto& f : files)
-                fileList += toWide(f.get<std::string>()) + L'\0';
+            for (auto& f : files) fileList += toWide(f.get<std::string>()) + L'\0';
             fileList += L'\0';
-
             size_t fileListBytes = fileList.size() * sizeof(wchar_t);
-            // DROPFILES struct layout: pFiles(4) + pt.x(4) + pt.y(4) + fNC(4) + fWide(4)
             const UINT DROP_HEADER_SIZE = 20;
             size_t dropSize = DROP_HEADER_SIZE + fileListBytes;
             HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, dropSize);
             if (hMem) {
                 BYTE* p = (BYTE*)GlobalLock(hMem);
-                // pFiles = offset to file list = sizeof(DROPFILES) = 20
                 p[0] = 20; p[1] = 0; p[2] = 0; p[3] = 0;
-                // pt.x = 0, pt.y = 0
-                *(UINT*)(p + 4) = 0;
-                *(UINT*)(p + 8) = 0;
-                // fNC = FALSE
-                *(UINT*)(p + 12) = 0;
-                // fWide = TRUE
-                *(UINT*)(p + 16) = 1;
+                *(UINT*)(p + 4) = 0; *(UINT*)(p + 8) = 0;
+                *(UINT*)(p + 12) = 0; *(UINT*)(p + 16) = 1;
                 memcpy(p + DROP_HEADER_SIZE, fileList.c_str(), fileListBytes);
                 GlobalUnlock(hMem);
-                OpenClipboard(m_hwnd);
-                EmptyClipboard();
-                SetClipboardData(CF_HDROP, hMem);
-                CloseClipboard();
+                OpenClipboard(m_hwnd); EmptyClipboard();
+                SetClipboardData(CF_HDROP, hMem); CloseClipboard();
             }
         } catch (...) {}
     }
-
     hide();
 }
 
 void AppWindow::pinItem(int index) {
     if (index < 0 || index >= (int)m_items.size()) return;
     auto& item = m_items[index];
-    int newState = item.pinned ? 0 : 1;
-    m_ipc.pinItem(item.id, newState);
+    m_ipc.pinItem(item.id, item.pinned ? 0 : 1);
     item.pinned = !item.pinned;
-    wchar_t text[256];
-    GetWindowTextW(m_searchBox, text, 256);
+    wchar_t text[256]; GetWindowTextW(m_searchBox, text, 256);
     refreshList(toNarrow(text));
 }
 
@@ -472,20 +397,16 @@ void AppWindow::deleteItem(int index) {
 std::wstring AppWindow::toWide(const std::string& s) {
     if (s.empty()) return L"";
     int len = MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, nullptr, 0);
-    wchar_t* buf = new wchar_t[len];
-    MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, buf, len);
-    std::wstring result(buf);
-    delete[] buf;
+    std::wstring result(len, L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, &result[0], len);
     return result;
 }
 
 std::string AppWindow::toNarrow(const std::wstring& ws) {
     if (ws.empty()) return "";
     int len = WideCharToMultiByte(CP_UTF8, 0, ws.c_str(), -1, nullptr, 0, nullptr, nullptr);
-    char* buf = new char[len];
-    WideCharToMultiByte(CP_UTF8, 0, ws.c_str(), -1, buf, len, nullptr, nullptr);
-    std::string result(buf);
-    delete[] buf;
+    std::string result(len, '\0');
+    WideCharToMultiByte(CP_UTF8, 0, ws.c_str(), -1, &result[0], len, nullptr, nullptr);
     return result;
 }
 
