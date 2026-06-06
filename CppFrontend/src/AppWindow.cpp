@@ -64,7 +64,7 @@ bool AppWindow::create() {
     m_targetH = height;
 
     m_hwnd = CreateWindowExW(
-        WS_EX_TOOLWINDOW | WS_EX_LAYERED,
+        WS_EX_TOOLWINDOW,
         CLASS_NAME, L"Clipper",
         WS_POPUP | WS_THICKFRAME | WS_SYSMENU,
         m_targetX, m_targetY, m_targetW, m_targetH,
@@ -72,17 +72,11 @@ bool AppWindow::create() {
 
     if (!m_hwnd) return false;
 
-    SetLayeredWindowAttributes(m_hwnd, 0, 240, LWA_ALPHA);
-
     // Windows 11 Mica/Acrylic backdrop
     BOOL useDark = IsDarkMode() ? TRUE : FALSE;
     DwmSetWindowAttribute(m_hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &useDark, sizeof(useDark));
     int backdrop = 4; // DWMSBT_TABBEDWINDOW
     DwmSetWindowAttribute(m_hwnd, (DWMWINDOWATTRIBUTE)38, &backdrop, sizeof(backdrop));
-
-    // Extend DWM frame into client area for glass effect
-    MARGINS margins{-1};
-    DwmExtendFrameIntoClientArea(m_hwnd, &margins);
 
     return true;
 }
