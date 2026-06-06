@@ -69,7 +69,7 @@ bool AppWindow::create() {
 
     if (!m_hwnd) return false;
 
-    SetLayeredWindowAttributes(m_hwnd, 0, 200, LWA_ALPHA);
+    SetLayeredWindowAttributes(m_hwnd, 0, 230, LWA_ALPHA);
 
     bool dark = IsDarkMode();
     BOOL useDark = FALSE; // Force light appearance for whiter base
@@ -88,7 +88,8 @@ bool AppWindow::create() {
     DwmExtendFrameIntoClientArea(m_hwnd, &margins);
 
     DWM_BLURBEHIND bb{};
-    bb.dwFlags = DWM_BB_ENABLE;
+    bb.dwFlags = DWM_BB_ENABLE | DWM_BB_BLURREGION;
+            bb.hRgnBlur = CreateRectRgn(0, 0, m_targetW, m_targetH);
     bb.fEnable = TRUE;
     DwmEnableBlurBehindWindow(m_hwnd, &bb);
 
@@ -100,7 +101,7 @@ bool AppWindow::create() {
         if (fn) {
             struct { int State, Flags, Color, AnimId; } p{};
             p.State = 4;
-            p.Color = dark ? 0x10FFFFFF : 0x20FFFFFF;
+            p.Color = dark ? 0xA0000000 : 0xB0FFFFFF;
             struct { int A; void* D; ULONG S; } d{19, &p, sizeof(p)};
             fn(m_hwnd, &d);
         }
