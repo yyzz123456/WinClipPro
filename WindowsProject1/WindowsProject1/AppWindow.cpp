@@ -64,7 +64,7 @@ bool AppWindow::create() {
     m_targetH = height;
 
     m_hwnd = CreateWindowExW(
-        WS_EX_TOOLWINDOW,
+        WS_EX_TOOLWINDOW | WS_EX_LAYERED,
         CLASS_NAME, L"Clipper",
         WS_OVERLAPPEDWINDOW,
         m_targetX, m_targetY, m_targetW, m_targetH,
@@ -72,13 +72,16 @@ bool AppWindow::create() {
 
     if (!m_hwnd) return false;
 
+    SetLayeredWindowAttributes(m_hwnd, 0, 230, LWA_ALPHA);
+
     BOOL useDark = dark ? TRUE : FALSE;
     DwmSetWindowAttribute(m_hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &useDark, sizeof(useDark));
     int backdrop = 3;
     DwmSetWindowAttribute(m_hwnd, (DWMWINDOWATTRIBUTE)38, &backdrop, sizeof(backdrop));
 
-    MARGINS margins{-1};
-    DwmExtendFrameIntoClientArea(m_hwnd, &margins);
+    // Explicitly enable system rounded corners (Win11)
+    int cornerPref = 1; // DWMWCP_ROUND
+    DwmSetWindowAttribute(m_hwnd, (DWMWINDOWATTRIBUTE)33, &cornerPref, sizeof(cornerPref));
 
     DWM_BLURBEHIND bb{};
     bb.dwFlags = DWM_BB_ENABLE | DWM_BB_BLURREGION;
