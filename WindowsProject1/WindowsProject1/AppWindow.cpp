@@ -86,6 +86,11 @@ bool AppWindow::create() {
     MARGINS margins{-1};
     DwmExtendFrameIntoClientArea(m_hwnd, &margins);
 
+    DWM_BLURBEHIND bb{};
+    bb.dwFlags = DWM_BB_ENABLE;
+    bb.fEnable = TRUE;
+    DwmEnableBlurBehindWindow(m_hwnd, &bb);
+
     HMODULE hUser32 = GetModuleHandleW(L"user32.dll");
     if (hUser32) {
         using fn_t = BOOL(WINAPI*)(HWND, void*);
