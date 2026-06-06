@@ -58,14 +58,16 @@ bool AppWindow::create() {
     SystemParametersInfo(SPI_GETWORKAREA, 0, &workArea, 0);
 
     const int MARGIN = 8;
-    int x = workArea.right - width - MARGIN;
-    int y = workArea.bottom - height - MARGIN;
+    m_targetX = workArea.right - width - MARGIN;
+    m_targetY = workArea.bottom - height - MARGIN;
+    m_targetW = width;
+    m_targetH = height;
 
     m_hwnd = CreateWindowExW(
         WS_EX_TOOLWINDOW | WS_EX_LAYERED,
         CLASS_NAME, L"Clipper",
         WS_POPUP | WS_THICKFRAME | WS_SYSMENU,
-        x, y, width, height,
+        m_targetX, m_targetY, m_targetW, m_targetH,
         nullptr, nullptr, m_hInstance, nullptr);
 
     if (!m_hwnd) return false;
@@ -93,30 +95,23 @@ void AppWindow::show() {
     onSize(rc.right, rc.bottom);
     refreshList();
 
-    RECT target;
-    GetWindowRect(m_hwnd, &target);
-    int tw = target.right - target.left;
-    int th = target.bottom - target.top;
-
     RECT workArea;
     SystemParametersInfo(SPI_GETWORKAREA, 0, &workArea, 0);
 
-    // Start below the screen
-    SetWindowPos(m_hwnd, nullptr, target.left, workArea.bottom, tw, th,
+    SetWindowPos(m_hwnd, nullptr, m_targetX, workArea.bottom, m_targetW, m_targetH,
                  SWP_NOZORDER | SWP_NOACTIVATE);
     ShowWindow(m_hwnd, SW_SHOWNOACTIVATE);
 
-    // Slide up
     const int STEPS = 4;
     const int DURATION = 50;
     for (int i = 1; i <= STEPS; i++) {
-        int curY = workArea.bottom - (workArea.bottom - target.top) * i / STEPS;
-        SetWindowPos(m_hwnd, nullptr, target.left, curY, tw, th,
+        int curY = workArea.bottom - (workArea.bottom - m_targetY) * i / STEPS;
+        SetWindowPos(m_hwnd, nullptr, m_targetX, curY, m_targetW, m_targetH,
                      SWP_NOZORDER | SWP_NOACTIVATE);
         Sleep(DURATION / STEPS);
     }
 
-    SetWindowPos(m_hwnd, nullptr, target.left, target.top, tw, th, SWP_NOZORDER);
+    SetWindowPos(m_hwnd, nullptr, m_targetX, m_targetY, m_targetW, m_targetH, SWP_NOZORDER);
     SetForegroundWindow(m_hwnd);
     SetFocus(m_searchBox);
 }
@@ -126,8 +121,6 @@ void AppWindow::hide() {
 
     RECT winRect;
     GetWindowRect(m_hwnd, &winRect);
-    int tw = winRect.right - winRect.left;
-    int th = winRect.bottom - winRect.top;
 
     RECT workArea;
     SystemParametersInfo(SPI_GETWORKAREA, 0, &workArea, 0);
@@ -136,11 +129,12 @@ void AppWindow::hide() {
     const int DURATION = 30;
     for (int i = 1; i <= STEPS; i++) {
         int curY = winRect.top + (workArea.bottom - winRect.top) * i / STEPS;
-        SetWindowPos(m_hwnd, nullptr, winRect.left, curY, tw, th,
+        SetWindowPos(m_hwnd, nullptr, winRect.left, curY, m_targetW, m_targetH,
                      SWP_NOZORDER | SWP_NOACTIVATE);
         Sleep(DURATION / STEPS);
     }
 
+    SetWindowPos(m_hwnd, nullptr, m_targetX, m_targetY, m_targetW, m_targetH, SWP_NOZORDER);
     ShowWindow(m_hwnd, SW_HIDE);
 }
 

@@ -52,6 +52,7 @@ private:
     HWND m_closeBtn = nullptr;
     HFONT m_closeFont = nullptr;
     bool m_menuActive = false;
+    int m_targetX = 0, m_targetY = 0, m_targetW = 0, m_targetH = 0;
     HINSTANCE m_hInstance;
     IpcClient m_ipc;
     std::vector<ClipItem> m_items;
