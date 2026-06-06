@@ -140,7 +140,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow) {
 
     // Register global hotkey Win+V
     g_hotkeyManager = new HotkeyManager();
-    g_hotkeyManager->registerHotkey(g_helperWnd, MOD_ALT, 'V', HOTKEY_ID, onHotkey);
+    g_hotkeyManager->registerHotkey(g_helperWnd, MOD_ALT, VK_OEM_COMMA, HOTKEY_ID, onHotkey);
 
     // Initialize IPC client
     g_ipc = new IpcClient();

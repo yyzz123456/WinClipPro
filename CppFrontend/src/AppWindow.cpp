@@ -309,7 +309,7 @@ void AppWindow::refreshList(const std::string& filter) {
     }
 
     wchar_t status[64];
-    swprintf_s(status, L" %zu items  |  Win+V to toggle", m_items.size());
+    swprintf_s(status, L" %zu items  |  Alt+, to toggle", m_items.size());
     SendMessageW(m_statusBar, SB_SETTEXT, 0, (LPARAM)status);
 }
 
@@ -433,7 +433,7 @@ void AppWindow::deleteItem(int index) {
     m_items.erase(m_items.begin() + index);
     updateListView(m_items);
     wchar_t status[64];
-    swprintf_s(status, L" %zu items  |  Win+V to toggle", m_items.size());
+    swprintf_s(status, L" %zu items  |  Alt+, to toggle", m_items.size());
     SendMessageW(m_statusBar, SB_SETTEXT, 0, (LPARAM)status);
 }
 
