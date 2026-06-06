@@ -75,10 +75,6 @@ bool AppWindow::create() {
 
     SetLayeredWindowAttributes(m_hwnd, 0, 230, LWA_ALPHA);
 
-    // Set rounded region BEFORE DWM frame extension so glass inherits shape
-    HRGN hRgn = CreateRoundRectRgn(0, 0, m_targetW + 1, m_targetH + 1, 12, 12);
-    SetWindowRgn(m_hwnd, hRgn, TRUE);
-
     BOOL useDark = dark ? TRUE : FALSE;
     DwmSetWindowAttribute(m_hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &useDark, sizeof(useDark));
     int backdrop = 3; // Mica - stronger than acrylic
@@ -124,6 +120,12 @@ bool AppWindow::create() {
             pSetWindowCompositionAttribute(m_hwnd, &data);
         }
     }
+
+    // Apply rounded region last and notify DWM
+    HRGN hRgn = CreateRoundRectRgn(0, 0, m_targetW + 1, m_targetH + 1, 12, 12);
+    SetWindowRgn(m_hwnd, hRgn, TRUE);
+    SetWindowPos(m_hwnd, nullptr, 0, 0, 0, 0,
+                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
 
     return true;
 }
