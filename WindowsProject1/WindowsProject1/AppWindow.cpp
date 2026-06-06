@@ -4,16 +4,11 @@
 #include <dwmapi.h>
 #include <shellapi.h>
 #include <windowsx.h>
-#include <ole2.h>
-#define GDIPVER 0x0110
-#include <gdiplus.h>
-#include <gdipluseffects.h>
 #include <sstream>
 #include <ctime>
 
 #pragma comment(lib, "dwmapi.lib")
 #pragma comment(lib, "comctl32.lib")
-#pragma comment(lib, "gdiplus.lib")
 
 AppWindow* AppWindow::s_instance = nullptr;
 
@@ -28,8 +23,6 @@ static bool IsDarkMode() {
 
 AppWindow::AppWindow(HINSTANCE hInstance) : m_hInstance(hInstance) {
     s_instance = this;
-    Gdiplus::GdiplusStartupInput gdiInput;
-    Gdiplus::GdiplusStartup(&m_gdiToken, &gdiInput, nullptr);
     INITCOMMONCONTROLSEX icex{};
     icex.dwSize = sizeof(icex);
     icex.dwICC = ICC_LISTVIEW_CLASSES | ICC_STANDARD_CLASSES;
@@ -37,9 +30,7 @@ AppWindow::AppWindow(HINSTANCE hInstance) : m_hInstance(hInstance) {
 }
 
 AppWindow::~AppWindow() {
-    delete m_blurBg;
     if (m_closeFont) DeleteObject(m_closeFont);
-    Gdiplus::GdiplusShutdown(m_gdiToken);
     s_instance = nullptr;
 }
 
@@ -71,13 +62,15 @@ bool AppWindow::create() {
     m_targetH = height;
 
     m_hwnd = CreateWindowExW(
-        WS_EX_TOOLWINDOW,
+        WS_EX_TOOLWINDOW | WS_EX_LAYERED,
         CLASS_NAME, L"Clipper",
         WS_POPUP | WS_THICKFRAME | WS_SYSMENU,
         m_targetX, m_targetY, m_targetW, m_targetH,
         nullptr, nullptr, m_hInstance, nullptr);
 
     if (!m_hwnd) return false;
+
+    SetLayeredWindowAttributes(m_hwnd, 0, 180, LWA_ALPHA);
 
     bool dark = IsDarkMode();
     BOOL useDark = FALSE; // Force light appearance for whiter base
@@ -111,34 +104,8 @@ bool AppWindow::create() {
     return true;
 }
 
-void AppWindow::captureAndBlur() {
-    delete m_blurBg;
-    m_blurBg = nullptr;
-
-    HDC hdcScreen = GetDC(nullptr);
-    HDC hdcMem = CreateCompatibleDC(hdcScreen);
-    HBITMAP hBmp = CreateCompatibleBitmap(hdcScreen, m_targetW, m_targetH);
-    HBITMAP hOld = (HBITMAP)SelectObject(hdcMem, hBmp);
-    BitBlt(hdcMem, 0, 0, m_targetW, m_targetH, hdcScreen, m_targetX, m_targetY, SRCCOPY);
-
-    m_blurBg = new Gdiplus::Bitmap(hBmp, nullptr);
-    Gdiplus::BlurParams params;
-    params.radius = (float)m_blurRadius;
-    params.expandEdge = FALSE;
-    Gdiplus::Blur blur;
-    blur.SetParameters(&params);
-    m_blurBg->ApplyEffect(&blur, nullptr);
-
-    SelectObject(hdcMem, hOld);
-    DeleteObject(hBmp);
-    DeleteDC(hdcMem);
-    ReleaseDC(nullptr, hdcScreen);
-}
-
 void AppWindow::show() {
     if (IsWindowVisible(m_hwnd)) return;
-
-    captureAndBlur();
 
     RECT rc;
     GetClientRect(m_hwnd, &rc);
@@ -203,14 +170,6 @@ LRESULT AppWindow::handleMsg(UINT msg, WPARAM wp, LPARAM lp) {
     switch (msg) {
         case WM_CREATE: onCreate(); return 0;
         case WM_SIZE:   onSize(LOWORD(lp), HIWORD(lp)); return 0;
-        case WM_ERASEBKGND:
-            if (m_blurBg) {
-                RECT rc; GetClientRect(m_hwnd, &rc);
-                Gdiplus::Graphics g((HDC)wp);
-                g.DrawImage(m_blurBg, 0, 0, rc.right, rc.bottom);
-                return 1;
-            }
-            break;
         case WM_NCHITTEST:
             {
                 LRESULT hit = DefWindowProc(m_hwnd, msg, wp, lp);
