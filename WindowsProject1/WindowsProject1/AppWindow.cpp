@@ -64,13 +64,30 @@ bool AppWindow::create() {
     m_hwnd = CreateWindowExW(
         WS_EX_TOOLWINDOW,
         CLASS_NAME, L"Clipper",
-        WS_POPUP,
+        WS_POPUP | WS_THICKFRAME | WS_SYSMENU,
         m_targetX, m_targetY, m_targetW, m_targetH,
         nullptr, nullptr, m_hInstance, nullptr);
 
     if (!m_hwnd) return false;
 
-    HRGN hRgn = CreateRoundRectRgn(0, 0, m_targetW + 1, m_targetH + 1, 30, 30);
+    bool dark = IsDarkMode();
+    BOOL useDark = dark ? TRUE : FALSE;
+    DwmSetWindowAttribute(m_hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &useDark, sizeof(useDark));
+
+    HMODULE hUser32 = GetModuleHandleW(L"user32.dll");
+    if (hUser32) {
+        using fn_t = BOOL(WINAPI*)(HWND, void*);
+        auto fn = (fn_t)GetProcAddress(hUser32, "SetWindowCompositionAttribute");
+        if (fn) {
+            struct { int State, Flags, Color, AnimId; } p{};
+            p.State = 4;
+            p.Color = dark ? 0xA0000000 : 0xD0FFFFFF;
+            struct { int A; void* D; ULONG S; } d{19, &p, sizeof(p)};
+            fn(m_hwnd, &d);
+        }
+    }
+
+    HRGN hRgn = CreateRoundRectRgn(0, 0, m_targetW + 1, m_targetH + 1, 16, 16);
     SetWindowRgn(m_hwnd, hRgn, TRUE);
 
     return true;
