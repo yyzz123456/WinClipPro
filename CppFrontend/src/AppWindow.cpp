@@ -117,6 +117,10 @@ bool AppWindow::create() {
         }
     }
 
+    // Round corners to align glass with window shape
+    HRGN hRgn = CreateRoundRectRgn(0, 0, m_targetW + 1, m_targetH + 1, 12, 12);
+    SetWindowRgn(m_hwnd, hRgn, TRUE);
+
     return true;
 }
 
