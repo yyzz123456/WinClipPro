@@ -45,7 +45,7 @@ bool AppWindow::create() {
     wc.lpfnWndProc = WndProc;
     wc.hInstance = m_hInstance;
     wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
-    wc.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
+    wc.hbrBackground = CreateSolidBrush(RGB(32, 32, 32));
     wc.lpszClassName = CLASS_NAME;
     RegisterClassExW(&wc);
 
@@ -64,15 +64,13 @@ bool AppWindow::create() {
     m_targetH = height;
 
     m_hwnd = CreateWindowExW(
-        WS_EX_TOOLWINDOW | WS_EX_LAYERED,
+        WS_EX_TOOLWINDOW,
         CLASS_NAME, L"Clipper",
         WS_POPUP | WS_THICKFRAME | WS_SYSMENU,
         m_targetX, m_targetY, m_targetW, m_targetH,
         nullptr, nullptr, m_hInstance, nullptr);
 
     if (!m_hwnd) return false;
-
-    SetLayeredWindowAttributes(m_hwnd, 0, 200, LWA_ALPHA);
 
     BOOL useDark = IsDarkMode() ? TRUE : FALSE;
     DwmSetWindowAttribute(m_hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &useDark, sizeof(useDark));
@@ -101,8 +99,8 @@ bool AppWindow::create() {
                 ULONG cbData;
             };
             AccentPolicy policy{};
-            policy.AccentState = 3; // ACCENT_ENABLE_BLURBEHIND - pure blur, no acrylic tint
-            policy.GradientColor = 0x00000000;
+            policy.AccentState = 4; // ACCENT_ENABLE_ACRYLICBLURBEHIND
+            policy.GradientColor = 0x99000000;
             WinCompAttrData data{};
             data.Attribute = 19; // WCA_ACCENT_POLICY
             data.pData = &policy;
