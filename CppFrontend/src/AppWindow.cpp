@@ -173,7 +173,7 @@ void AppWindow::onCreate() {
     // Close button
     m_closeBtn = CreateWindowExW(
         0, L"BUTTON", L"X",
-        WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_FLAT,
+        WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
         0, 0, 26, 26,
         m_hwnd, (HMENU)(UINT_PTR)ID_CLOSE, m_hInstance, nullptr);
     HFONT hCloseFont = CreateFontW(14, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
@@ -364,27 +364,13 @@ void AppWindow::deleteItem(int index) {
 // ---- DWM Effects ----
 
 void AppWindow::applyAcrylic() {
-    // Try Windows 11 Mica/Acrylic backdrop
     BOOL useDark = FALSE;
     DwmSetWindowAttribute(m_hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE,
                           &useDark, sizeof(useDark));
 
-    // DWMWA_SYSTEMBACKDROP_TYPE for Windows 11 (value 38)
-    // DWMSBT_MAINWINDOW=2, DWMSBT_TABBEDWINDOW=4
-    int backdrop = 4; // DWMSBT_TABBEDWINDOW = acrylic-like
+    int backdrop = 4;
     DwmSetWindowAttribute(m_hwnd, (DWMWINDOWATTRIBUTE)38,
                           &backdrop, sizeof(backdrop));
-
-    // Fallback: DWM blur for older Windows
-    DWM_BLURBEHIND bb{};
-    bb.dwFlags = DWM_BB_ENABLE;
-    bb.fEnable = TRUE;
-    bb.hRgnBlur = nullptr;
-    DwmEnableBlurBehindWindow(m_hwnd, &bb);
-
-    // Extend frame into client area for glass effect
-    MARGINS margins{-1};
-    DwmExtendFrameIntoClientArea(m_hwnd, &margins);
 }
 
 void AppWindow::setWindowCorners() {
@@ -395,7 +381,7 @@ void AppWindow::setWindowCorners() {
 }
 
 void AppWindow::updateWindowRegion(int width, int height) {
-    HRGN hRgn = CreateRoundRectRgn(0, 0, width + 1, height + 1, 12, 12);
+    HRGN hRgn = CreateRoundRectRgn(0, 0, width + 1, height + 1, 16, 16);
     SetWindowRgn(m_hwnd, hRgn, TRUE);
 }
 
