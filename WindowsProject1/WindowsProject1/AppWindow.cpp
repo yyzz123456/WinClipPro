@@ -102,14 +102,13 @@ void AppWindow::show() {
                  SWP_NOZORDER | SWP_NOACTIVATE);
     ShowWindow(m_hwnd, SW_SHOWNOACTIVATE);
 
-    const int STEPS = 10;
-    const int DURATION = 180;
-    int stepMs = DURATION / STEPS;
+    const int STEPS = 4;
+    const int DURATION = 50;
     for (int i = 1; i <= STEPS; i++) {
         int curY = workArea.bottom - (workArea.bottom - target.top) * i / STEPS;
         SetWindowPos(m_hwnd, nullptr, target.left, curY, tw, th,
                      SWP_NOZORDER | SWP_NOACTIVATE);
-        Sleep(stepMs);
+        Sleep(DURATION / STEPS);
     }
 
     SetWindowPos(m_hwnd, nullptr, target.left, target.top, tw, th, SWP_NOZORDER);
@@ -128,14 +127,13 @@ void AppWindow::hide() {
     RECT workArea;
     SystemParametersInfo(SPI_GETWORKAREA, 0, &workArea, 0);
 
-    const int STEPS = 7;
-    const int DURATION = 120;
-    int stepMs = DURATION / STEPS;
+    const int STEPS = 3;
+    const int DURATION = 30;
     for (int i = 1; i <= STEPS; i++) {
         int curY = winRect.top + (workArea.bottom - winRect.top) * i / STEPS;
         SetWindowPos(m_hwnd, nullptr, winRect.left, curY, tw, th,
                      SWP_NOZORDER | SWP_NOACTIVATE);
-        Sleep(stepMs);
+        Sleep(DURATION / STEPS);
     }
 
     ShowWindow(m_hwnd, SW_HIDE);
