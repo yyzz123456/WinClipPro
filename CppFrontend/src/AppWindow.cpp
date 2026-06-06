@@ -92,6 +92,11 @@ bool AppWindow::create() {
     return true;
 }
 
+void AppWindow::applyRegion() {
+    HRGN hRgn = CreateRoundRectRgn(0, 0, m_targetW + 1, m_targetH + 1, 16, 16);
+    SetWindowRgn(m_hwnd, hRgn, TRUE);
+}
+
 void AppWindow::show() {
     if (IsWindowVisible(m_hwnd)) return;
 
@@ -106,6 +111,7 @@ void AppWindow::show() {
     SetWindowPos(m_hwnd, nullptr, m_targetX, workArea.bottom, m_targetW, m_targetH,
                  SWP_NOZORDER | SWP_NOACTIVATE);
     ShowWindow(m_hwnd, SW_SHOWNOACTIVATE);
+    applyRegion();
 
     const int STEPS = 4;
     const int DURATION = 50;
@@ -117,6 +123,7 @@ void AppWindow::show() {
     }
 
     SetWindowPos(m_hwnd, nullptr, m_targetX, m_targetY, m_targetW, m_targetH, SWP_NOZORDER);
+    applyRegion();
     SetForegroundWindow(m_hwnd);
     SetFocus(m_searchBox);
 }
@@ -158,6 +165,9 @@ LRESULT AppWindow::handleMsg(UINT msg, WPARAM wp, LPARAM lp) {
     switch (msg) {
         case WM_CREATE: onCreate(); return 0;
         case WM_SIZE:   onSize(LOWORD(lp), HIWORD(lp)); return 0;
+        case WM_SHOWWINDOW:
+            if (wp == TRUE) applyRegion();
+            break;
         case WM_NCHITTEST:
             {
                 LRESULT hit = DefWindowProc(m_hwnd, msg, wp, lp);
