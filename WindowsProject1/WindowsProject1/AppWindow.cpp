@@ -70,7 +70,7 @@ bool AppWindow::create() {
 
     if (!m_hwnd) return false;
 
-    SetLayeredWindowAttributes(m_hwnd, 0, 230, LWA_ALPHA);
+    SetLayeredWindowAttributes(m_hwnd, 0, 200, LWA_ALPHA);
 
     bool dark = IsDarkMode();
     BOOL useDark = FALSE; // Force light appearance for whiter base
@@ -86,20 +86,16 @@ bool AppWindow::create() {
     MARGINS margins{-1};
     DwmExtendFrameIntoClientArea(m_hwnd, &margins);
 
-    DWM_BLURBEHIND bb{};
-    bb.dwFlags = DWM_BB_ENABLE | DWM_BB_BLURREGION;
-            bb.hRgnBlur = CreateRectRgn(0, 0, m_targetW, m_targetH);
-    bb.fEnable = TRUE;
-    DwmEnableBlurBehindWindow(m_hwnd, &bb);
-
+    // Acrylic blur (DwmEnableBlurBehindWindow deprecated on Win8+)
     HMODULE hUser32 = GetModuleHandleW(L"user32.dll");
     if (hUser32) {
         using fn_t = BOOL(WINAPI*)(HWND, void*);
         auto fn = (fn_t)GetProcAddress(hUser32, "SetWindowCompositionAttribute");
         if (fn) {
             struct { int State, Flags, Color, AnimId; } p{};
-            p.State = 4;
-            p.Color = dark ? 0xA0000000 : 0xB0FFFFFF;
+            p.State = 4;   // ACCENT_ENABLE_ACRYLICBLURBEHIND
+            p.Flags = 2;   // full acrylic noise texture
+            p.Color = dark ? 0x40000000 : 0x60FFFFFF;
             struct { int A; void* D; ULONG S; } d{19, &p, sizeof(p)};
             fn(m_hwnd, &d);
         }
