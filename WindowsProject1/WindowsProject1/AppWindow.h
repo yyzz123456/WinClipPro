@@ -51,6 +51,7 @@ private:
     HWND m_statusBar = nullptr;
     HWND m_closeBtn = nullptr;
     HFONT m_closeFont = nullptr;
+    bool m_menuActive = false;
     HINSTANCE m_hInstance;
     IpcClient m_ipc;
     std::vector<ClipItem> m_items;

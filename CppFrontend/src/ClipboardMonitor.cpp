@@ -1,4 +1,5 @@
 #include "ClipboardMonitor.h"
+#include <shellapi.h>
 #include <shlobj.h>
 #include <gdiplus.h>
 #pragma comment(lib, "gdiplus.lib")

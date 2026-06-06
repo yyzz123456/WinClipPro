@@ -29,6 +29,7 @@ AppWindow::AppWindow(HINSTANCE hInstance) : m_hInstance(hInstance) {
 }
 
 AppWindow::~AppWindow() {
+    if (m_closeFont) DeleteObject(m_closeFont);
     s_instance = nullptr;
 }
 
@@ -76,6 +77,9 @@ bool AppWindow::create(int width, int height) {
 }
 
 void AppWindow::show() {
+    RECT rc;
+    GetClientRect(m_hwnd, &rc);
+    onSize(rc.right, rc.bottom);
     refreshList();
     ShowWindow(m_hwnd, SW_SHOW);
     SetForegroundWindow(m_hwnd);
@@ -107,7 +111,7 @@ LRESULT AppWindow::handleMsg(UINT msg, WPARAM wp, LPARAM lp) {
             {
                 LRESULT hit = DefWindowProc(m_hwnd, msg, wp, lp);
                 if (hit == HTCLIENT) {
-                    POINT pt = {LOWORD(lp), HIWORD(lp)};
+                    POINT pt = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
                     ScreenToClient(m_hwnd, &pt);
                     if (pt.y < 40) return HTCAPTION;
                 }
@@ -134,12 +138,12 @@ LRESULT AppWindow::handleMsg(UINT msg, WPARAM wp, LPARAM lp) {
             return 0;
         case WM_CONTEXTMENU:
             if ((HWND)wp == m_listView) {
-                POINT pt = {LOWORD(lp), HIWORD(lp)};
+                POINT pt = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
                 onContextMenu(pt);
             }
             return 0;
         case WM_ACTIVATE:
-            if (LOWORD(wp) == WA_INACTIVE) hide();
+            if (LOWORD(wp) == WA_INACTIVE && !m_menuActive) hide();
             return 0;
         case WM_KEYDOWN:
             if (wp == VK_ESCAPE) hide();
@@ -228,7 +232,11 @@ void AppWindow::refreshList(const std::string& filter) {
 
     try {
         json j = json::parse(response);
-        if (j["status"] != "ok") return;
+        if (j["status"] != "ok") {
+            SendMessageW(m_statusBar, SB_SETTEXT, 0,
+                (LPARAM)L" Failed to load - is Java backend running?");
+            return;
+        }
 
         m_items.clear();
         for (auto& item : j["data"]["items"]) {
@@ -241,7 +249,10 @@ void AppWindow::refreshList(const std::string& filter) {
             m_items.push_back(ci);
         }
         updateListView(m_items);
-    } catch (...) {}
+    } catch (...) {
+        SendMessageW(m_statusBar, SB_SETTEXT, 0,
+            (LPARAM)L" Backend not connected - start Java first");
+    }
 
     wchar_t status[64];
     swprintf_s(status, L" %zu items  |  Win+V to toggle", m_items.size());
@@ -289,8 +300,10 @@ void AppWindow::onContextMenu(POINT pt) {
                 m_items[idx].pinned ? L"Unpin" : L"Pin");
     AppendMenuW(hMenu, MF_STRING, IDM_DELETE, L"Delete");
 
+    m_menuActive = true;
     int cmd = TrackPopupMenu(hMenu, TPM_RETURNCMD | TPM_NONOTIFY,
                              pt.x, pt.y, 0, m_hwnd, nullptr);
+    m_menuActive = false;
     DestroyMenu(hMenu);
 
     switch (cmd) {
@@ -325,10 +338,17 @@ void AppWindow::copyToClipboard(int index) {
                 fileList += toWide(f.get<std::string>()) + L'\0';
             fileList += L'\0';
 
-            size_t size = fileList.size() * sizeof(wchar_t);
-            HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, size);
+            size_t fileListBytes = fileList.size() * sizeof(wchar_t);
+            size_t dropSize = sizeof(DROPFILES) + fileListBytes;
+            HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, dropSize);
             if (hMem) {
-                memcpy(GlobalLock(hMem), fileList.c_str(), size);
+                DROPFILES* df = (DROPFILES*)GlobalLock(hMem);
+                df->pFiles = sizeof(DROPFILES);
+                df->pt.x = 0;
+                df->pt.y = 0;
+                df->fNC = FALSE;
+                df->fWide = TRUE;
+                memcpy((BYTE*)df + sizeof(DROPFILES), fileList.c_str(), fileListBytes);
                 GlobalUnlock(hMem);
                 OpenClipboard(m_hwnd);
                 EmptyClipboard();

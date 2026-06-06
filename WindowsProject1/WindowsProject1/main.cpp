@@ -18,7 +18,6 @@ static IpcClient* g_ipc = nullptr;
 static HWND g_helperWnd = nullptr;
 
 static constexpr int HOTKEY_ID = 1;
-static constexpr UINT WM_TRAY_ICON = WM_APP + 1;
 
 // Start the Java backend process
 static bool startJavaBackend() {
@@ -34,9 +33,7 @@ static bool startJavaBackend() {
     wchar_t jarPath[MAX_PATH];
 
     // Look for Java in common locations
-    GetEnvironmentVariableW(L"JAVA_HOME", javaPath, MAX_PATH);
-    if (wcslen(javaPath) == 0) {
-        // Try system PATH - just use "java"
+    if (GetEnvironmentVariableW(L"JAVA_HOME", javaPath, MAX_PATH) == 0) {
         wcscpy_s(javaPath, L"java");
     } else {
         wcscat_s(javaPath, L"\\bin\\java.exe");
@@ -149,7 +146,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow) {
     g_ipc = new IpcClient();
 
     // Start Java backend
-    std::thread([&]() {
+    std::thread([]() {
         startJavaBackend();
     }).detach();
 

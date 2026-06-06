@@ -56,14 +56,21 @@ std::string IpcClient::sendRequest(const std::string& json) {
         return R"({"status":"error","message":"send failed"})";
     }
 
-    char buffer[8192];
-    int received = recv(m_socket, buffer, sizeof(buffer) - 1, 0);
-    if (received <= 0) {
-        m_connected = false;
-        return R"({"status":"error","message":"recv failed"})";
+    std::string result;
+    char buffer[4096];
+    while (true) {
+        int received = recv(m_socket, buffer, sizeof(buffer) - 1, 0);
+        if (received <= 0) {
+            m_connected = false;
+            return R"({"status":"error","message":"recv failed"})";
+        }
+        buffer[received] = '\0';
+        result += buffer;
+        if (result.find('\n') != std::string::npos) break;
     }
-    buffer[received] = '\0';
-    return std::string(buffer);
+    if (!result.empty() && result.back() == '\n')
+        result.pop_back();
+    return result;
 }
 
 std::string IpcClient::saveClipboard(const std::string& content,
