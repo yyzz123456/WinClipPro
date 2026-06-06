@@ -61,13 +61,15 @@ bool AppWindow::create() {
     m_targetH = height;
 
     m_hwnd = CreateWindowExW(
-        WS_EX_TOOLWINDOW,
+        WS_EX_TOOLWINDOW | WS_EX_LAYERED,
         CLASS_NAME, L"Clipper",
         WS_POPUP | WS_THICKFRAME | WS_SYSMENU,
         m_targetX, m_targetY, m_targetW, m_targetH,
         nullptr, nullptr, m_hInstance, nullptr);
 
     if (!m_hwnd) return false;
+
+    SetLayeredWindowAttributes(m_hwnd, 0, 200, LWA_ALPHA);
 
     bool dark = IsDarkMode();
     BOOL useDark = FALSE; // Force light appearance for whiter base
