@@ -81,6 +81,12 @@ bool AppWindow::create() {
     MARGINS margins{-1};
     DwmExtendFrameIntoClientArea(m_hwnd, &margins);
 
+    DWM_BLURBEHIND bb{};
+    bb.dwFlags = DWM_BB_ENABLE | DWM_BB_BLURREGION;
+    bb.fEnable = TRUE;
+    bb.hRgnBlur = CreateRectRgn(0, 0, m_targetW, m_targetH);
+    DwmEnableBlurBehindWindow(m_hwnd, &bb);
+
     return true;
 }
 

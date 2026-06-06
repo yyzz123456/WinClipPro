@@ -4,7 +4,11 @@
       "Bash(cp \"F:/Users/Public/Documents/大作业/Java/CppFrontend/src/\"*.h \"F:/Users/Public/Documents/大作业/Java/WindowsProject1/WindowsProject1/\")",
       "Bash(cp \"F:/Users/Public/Documents/大作业/Java/CppFrontend/src/\"*.cpp \"F:/Users/Public/Documents/大作业/Java/WindowsProject1/WindowsProject1/\")",
       "Bash(git init *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git restore *)",
+      "Bash(git checkout *)",
+      "Bash(git revert *)"
     ]
   }
 }
