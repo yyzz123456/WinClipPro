@@ -185,9 +185,6 @@ LRESULT AppWindow::handleMsg(UINT msg, WPARAM wp, LPARAM lp) {
     switch (msg) {
         case WM_CREATE: onCreate(); return 0;
         case WM_SIZE:   onSize(LOWORD(lp), HIWORD(lp)); return 0;
-        case WM_NCCALCSIZE:
-            if (wp == TRUE) return 0;
-            break;
         case WM_NCHITTEST:
             {
                 LRESULT hit = DefWindowProc(m_hwnd, msg, wp, lp);
