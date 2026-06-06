@@ -1,6 +1,7 @@
 #pragma once
 #include <windows.h>
 #include <commctrl.h>
+#include <gdiplus.h>
 #include <vector>
 #include <string>
 #include "IpcClient.h"
@@ -41,6 +42,7 @@ private:
     void deleteItem(int index);
 
     void updateListView(const std::vector<ClipItem>& items);
+    void captureAndBlur();
     static std::string formatTimestamp(long long ts);
     static std::wstring toWide(const std::string& s);
     static std::string toNarrow(const std::wstring& ws);
@@ -56,6 +58,10 @@ private:
     HINSTANCE m_hInstance;
     IpcClient m_ipc;
     std::vector<ClipItem> m_items;
+
+    ULONG_PTR m_gdiToken = 0;
+    Gdiplus::Bitmap* m_blurBg = nullptr;
+    int m_blurRadius = 20;
 
     static AppWindow* s_instance;
 
