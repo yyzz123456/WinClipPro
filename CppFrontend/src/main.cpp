@@ -112,7 +112,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow) {
 
     // Create the popup window
     g_appWindow = new AppWindow(hInstance);
-    if (!g_appWindow->create(620, 520)) {
+    if (!g_appWindow->create()) {
         CoUninitialize();
         return -1;
     }

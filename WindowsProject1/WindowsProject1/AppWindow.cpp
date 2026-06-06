@@ -35,7 +35,7 @@ AppWindow::~AppWindow() {
     s_instance = nullptr;
 }
 
-bool AppWindow::create(int width, int height) {
+bool AppWindow::create() {
     const wchar_t* CLASS_NAME = L"ClipperPopupWindow";
 
     WNDCLASSEXW wc{};
@@ -48,11 +48,17 @@ bool AppWindow::create(int width, int height) {
     wc.lpszClassName = CLASS_NAME;
     RegisterClassExW(&wc);
 
+    int screenW = GetSystemMetrics(SM_CXSCREEN);
+    int screenH = GetSystemMetrics(SM_CYSCREEN);
+    int width = (int)(screenW * 0.212);
+    int height = (int)(screenH * 0.376);
+
     RECT workArea;
     SystemParametersInfo(SPI_GETWORKAREA, 0, &workArea, 0);
 
-    int x = (workArea.right - width) / 2;
-    int y = (workArea.bottom - height) / 2;
+    const int MARGIN = 8;
+    int x = workArea.right - width - MARGIN;
+    int y = workArea.bottom - height - MARGIN;
 
     m_hwnd = CreateWindowExW(
         WS_EX_TOOLWINDOW | WS_EX_LAYERED,

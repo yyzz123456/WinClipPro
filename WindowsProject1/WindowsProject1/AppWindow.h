@@ -19,7 +19,7 @@ public:
     AppWindow(HINSTANCE hInstance);
     ~AppWindow();
 
-    bool create(int width, int height);
+    bool create();
     void show();
     void hide();
     void toggle();
