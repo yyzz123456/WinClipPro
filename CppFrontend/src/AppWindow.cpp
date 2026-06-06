@@ -65,27 +65,21 @@ bool AppWindow::create() {
     m_targetH = height;
 
     m_hwnd = CreateWindowExW(
-        WS_EX_TOOLWINDOW | WS_EX_LAYERED,
+        WS_EX_TOOLWINDOW,
         CLASS_NAME, L"Clipper",
-        WS_POPUP | WS_SYSMENU,
+        WS_OVERLAPPEDWINDOW,
         m_targetX, m_targetY, m_targetW, m_targetH,
         nullptr, nullptr, m_hInstance, nullptr);
 
     if (!m_hwnd) return false;
 
-    SetLayeredWindowAttributes(m_hwnd, 0, 230, LWA_ALPHA);
-
     BOOL useDark = dark ? TRUE : FALSE;
     DwmSetWindowAttribute(m_hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &useDark, sizeof(useDark));
-    int backdrop = 3; // Mica - stronger than acrylic
+    int backdrop = 3;
     DwmSetWindowAttribute(m_hwnd, (DWMWINDOWATTRIBUTE)38, &backdrop, sizeof(backdrop));
 
     MARGINS margins{-1};
     DwmExtendFrameIntoClientArea(m_hwnd, &margins);
-
-    // DWM native rounded corners
-    int cornerPref = 1; // DWMWCP_ROUND
-    DwmSetWindowAttribute(m_hwnd, (DWMWINDOWATTRIBUTE)33, &cornerPref, sizeof(cornerPref));
 
     DWM_BLURBEHIND bb{};
     bb.dwFlags = DWM_BB_ENABLE | DWM_BB_BLURREGION;
@@ -120,14 +114,6 @@ bool AppWindow::create() {
             pSetWindowCompositionAttribute(m_hwnd, &data);
         }
     }
-
-    // Flush DWM then apply rounded region
-    DwmFlush();
-    HRGN hRgn = CreateRoundRectRgn(0, 0, m_targetW + 1, m_targetH + 1, 12, 12);
-    SetWindowRgn(m_hwnd, hRgn, TRUE);
-    SetWindowPos(m_hwnd, nullptr, 0, 0, 0, 0,
-                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
-    DwmFlush();
 
     return true;
 }
@@ -200,6 +186,9 @@ LRESULT AppWindow::handleMsg(UINT msg, WPARAM wp, LPARAM lp) {
     switch (msg) {
         case WM_CREATE: onCreate(); return 0;
         case WM_SIZE:   onSize(LOWORD(lp), HIWORD(lp)); return 0;
+        case WM_NCCALCSIZE:
+            if (wp == TRUE) return 0;
+            break;
         case WM_NCHITTEST:
             {
                 LRESULT hit = DefWindowProc(m_hwnd, msg, wp, lp);
