@@ -48,7 +48,7 @@ static bool startJavaBackend() {
     std::wstring projRoot = std::wstring(jarPath) + L"..\\..\\..\\";
     std::wstring classpath = projRoot + L"JavaBackend\\lib\\sqlite-jdbc-3.42.0.0.jar;" +
         projRoot + L"JavaBackend\\lib\\gson-2.10.1.jar;" +
-        projRoot + L"JavaBackend\\src";
+        projRoot + L"JavaBackend\\out\\production\\JavaBackend";
 
     STARTUPINFOW si{};
     si.cb = sizeof(si);
