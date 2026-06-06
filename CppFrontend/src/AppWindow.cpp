@@ -73,11 +73,11 @@ bool AppWindow::create() {
 
     if (!m_hwnd) return false;
 
-    SetLayeredWindowAttributes(m_hwnd, 0, 190, LWA_ALPHA);
+    SetLayeredWindowAttributes(m_hwnd, 0, 230, LWA_ALPHA);
 
     BOOL useDark = dark ? TRUE : FALSE;
     DwmSetWindowAttribute(m_hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &useDark, sizeof(useDark));
-    int backdrop = 4;
+    int backdrop = 3; // Mica - stronger than acrylic
     DwmSetWindowAttribute(m_hwnd, (DWMWINDOWATTRIBUTE)38, &backdrop, sizeof(backdrop));
 
     MARGINS margins{-1};
@@ -108,7 +108,7 @@ bool AppWindow::create() {
             };
             AccentPolicy policy{};
             policy.AccentState = 4; // ACCENT_ENABLE_ACRYLICBLURBEHIND
-            policy.GradientColor = dark ? 0x80000000 : 0xB0FFFFFF;
+            policy.GradientColor = dark ? 0xA0000000 : 0xD0FFFFFF;
             WinCompAttrData data{};
             data.Attribute = 19; // WCA_ACCENT_POLICY
             data.pData = &policy;
