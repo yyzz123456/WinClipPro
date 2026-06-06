@@ -84,6 +84,19 @@ bool AppWindow::create() {
     MARGINS margins{-1};
     DwmExtendFrameIntoClientArea(m_hwnd, &margins);
 
+    HMODULE hUser32 = GetModuleHandleW(L"user32.dll");
+    if (hUser32) {
+        using fn_t = BOOL(WINAPI*)(HWND, void*);
+        auto fn = (fn_t)GetProcAddress(hUser32, "SetWindowCompositionAttribute");
+        if (fn) {
+            struct { int State, Flags, Color, AnimId; } p{};
+            p.State = 4;
+            p.Color = dark ? 0x30FFFFFF : 0x60FFFFFF;
+            struct { int A; void* D; ULONG S; } d{19, &p, sizeof(p)};
+            fn(m_hwnd, &d);
+        }
+    }
+
     return true;
 }
 
