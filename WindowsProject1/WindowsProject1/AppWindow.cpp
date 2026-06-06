@@ -71,7 +71,7 @@ bool AppWindow::create() {
 
     if (!m_hwnd) return false;
 
-    SetLayeredWindowAttributes(m_hwnd, 0, 230, LWA_ALPHA);
+    SetLayeredWindowAttributes(m_hwnd, 0, 200, LWA_ALPHA);
 
     BOOL useDark = IsDarkMode() ? TRUE : FALSE;
     DwmSetWindowAttribute(m_hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &useDark, sizeof(useDark));
@@ -80,11 +80,6 @@ bool AppWindow::create() {
 
     MARGINS margins{-1};
     DwmExtendFrameIntoClientArea(m_hwnd, &margins);
-
-    DWM_BLURBEHIND bb{};
-    bb.dwFlags = DWM_BB_ENABLE;
-    bb.fEnable = TRUE;
-    DwmEnableBlurBehindWindow(m_hwnd, &bb);
 
     return true;
 }
