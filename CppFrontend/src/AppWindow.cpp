@@ -77,10 +77,7 @@ bool AppWindow::create() {
     int backdrop = 4;
     DwmSetWindowAttribute(m_hwnd, (DWMWINDOWATTRIBUTE)38, &backdrop, sizeof(backdrop));
 
-    MARGINS margins{-1};
-    DwmExtendFrameIntoClientArea(m_hwnd, &margins);
-
-    // Use SetWindowCompositionAttribute for maximum acrylic blur
+    // Use SetWindowCompositionAttribute for acrylic blur
     HMODULE hUser32 = GetModuleHandleW(L"user32.dll");
     if (hUser32) {
         using SetWindowCompositionAttribute_t = BOOL(WINAPI*)(HWND, void*);
@@ -100,7 +97,7 @@ bool AppWindow::create() {
             };
             AccentPolicy policy{};
             policy.AccentState = 4; // ACCENT_ENABLE_ACRYLICBLURBEHIND
-            policy.GradientColor = 0x99000000;
+            policy.GradientColor = 0x30000000;
             WinCompAttrData data{};
             data.Attribute = 19; // WCA_ACCENT_POLICY
             data.pData = &policy;
