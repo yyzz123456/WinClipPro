@@ -81,6 +81,17 @@ LRESULT AppWindow::handleMsg(UINT msg, WPARAM wp, LPARAM lp) {
     switch (msg) {
         case WM_CREATE: onCreate(); return 0;
         case WM_SIZE:   onSize(LOWORD(lp), HIWORD(lp)); return 0;
+        case WM_NCHITTEST:
+            {
+                LRESULT hit = DefWindowProc(m_hwnd, msg, wp, lp);
+                if (hit == HTCLIENT) {
+                    POINT pt = {LOWORD(lp), HIWORD(lp)};
+                    ScreenToClient(m_hwnd, &pt);
+                    // Allow dragging from top 40px area
+                    if (pt.y < 40) return HTCAPTION;
+                }
+                return hit;
+            }
         case WM_ERASEBKGND:
             {
                 RECT rc;
@@ -137,9 +148,9 @@ void AppWindow::onCreate() {
     m_closeBtn = CreateWindowExW(
         0, L"BUTTON", L"X",
         WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-        0, 0, 28, 28,
+        0, 0, 30, 30,
         m_hwnd, (HMENU)(UINT_PTR)ID_CLOSE, m_hInstance, nullptr);
-    m_closeFont = CreateFontW(14, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
+    m_closeFont = CreateFontW(15, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
                               DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
                               CLEARTYPE_QUALITY, DEFAULT_PITCH, L"Segoe UI Variable");
     SendMessage(m_closeBtn, WM_SETFONT, (WPARAM)m_closeFont, TRUE);
@@ -181,9 +192,9 @@ void AppWindow::onCreate() {
 }
 
 void AppWindow::onSize(int width, int height) {
-    SetWindowPos(m_closeBtn, nullptr, width - 42, 10, 28, 28, SWP_NOZORDER);
+    SetWindowPos(m_closeBtn, nullptr, width - 50, 8, 30, 30, SWP_NOZORDER);
     SetWindowPos(m_searchBox, nullptr, 0, 0,
-                 width - 58, 28, SWP_NOMOVE | SWP_NOZORDER);
+                 width - 66, 28, SWP_NOMOVE | SWP_NOZORDER);
     SetWindowPos(m_listView, nullptr, 0, 0,
                  width - 24, height - 90, SWP_NOMOVE | SWP_NOZORDER);
     SendMessage(m_listView, WM_SIZE, 0, 0);
