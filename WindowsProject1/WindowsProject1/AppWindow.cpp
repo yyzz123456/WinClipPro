@@ -1,6 +1,8 @@
 #include "AppWindow.h"
 #include "JsonHelper.h"
 #include <dwmapi.h>
+#include <shellapi.h>
+#include <windowsx.h>
 #include <sstream>
 #include <ctime>
 
