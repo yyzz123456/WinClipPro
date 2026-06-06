@@ -126,7 +126,7 @@ void AppWindow::captureAndBlur() {
 
     Gdiplus::BlurParams params;
     params.radius = (float)m_blurRadius;
-    params.padding = 0;
+    params.expandEdge = FALSE;
     Gdiplus::Blur blur;
     blur.SetParameters(&params);
     m_blurBg->ApplyEffect(&blur, nullptr);
