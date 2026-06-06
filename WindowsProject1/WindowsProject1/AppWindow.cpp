@@ -1,10 +1,8 @@
 #include "AppWindow.h"
 #include "JsonHelper.h"
-#include <dwmapi.h>
 #include <sstream>
 #include <ctime>
 
-#pragma comment(lib, "dwmapi.lib")
 #pragma comment(lib, "comctl32.lib")
 
 AppWindow* AppWindow::s_instance = nullptr;
@@ -31,7 +29,7 @@ bool AppWindow::create(int width, int height) {
     wc.lpfnWndProc = WndProc;
     wc.hInstance = m_hInstance;
     wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
-    wc.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
+    wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
     wc.lpszClassName = CLASS_NAME;
     RegisterClassExW(&wc);
 
@@ -50,8 +48,6 @@ bool AppWindow::create(int width, int height) {
 
     if (!m_hwnd) return false;
 
-    setWindowCorners();
-    applyAcrylic();
     updateWindowRegion(width, height);
 
     return true;
@@ -88,6 +84,15 @@ LRESULT AppWindow::handleMsg(UINT msg, WPARAM wp, LPARAM lp) {
     switch (msg) {
         case WM_CREATE: onCreate(); return 0;
         case WM_SIZE:   onSize(LOWORD(lp), HIWORD(lp)); return 0;
+        case WM_ERASEBKGND:
+            {
+                RECT rc;
+                GetClientRect(m_hwnd, &rc);
+                HBRUSH hBr = CreateSolidBrush(RGB(32, 32, 32));
+                FillRect((HDC)wp, &rc, hBr);
+                DeleteObject(hBr);
+            }
+            return 1;
         case WM_COMMAND:
             if (HIWORD(wp) == BN_CLICKED && LOWORD(wp) == ID_CLOSE) {
                 hide();
@@ -95,14 +100,6 @@ LRESULT AppWindow::handleMsg(UINT msg, WPARAM wp, LPARAM lp) {
             }
             if (HIWORD(wp) == EN_CHANGE && LOWORD(wp) == ID_SEARCH) onSearch();
             return 0;
-        case WM_CTLCOLORBTN:
-            if ((HWND)lp == m_closeBtn) {
-                HDC hdc = (HDC)wp;
-                SetTextColor(hdc, RGB(240, 240, 240));
-                SetBkMode(hdc, TRANSPARENT);
-                return (LRESULT)GetStockObject(HOLLOW_BRUSH);
-            }
-            break;
         case WM_NOTIFY:
             if (((NMHDR*)lp)->code == NM_RCLICK && ((NMHDR*)lp)->idFrom == ID_LIST) {
                 POINT pt;
@@ -139,9 +136,17 @@ LRESULT AppWindow::handleMsg(UINT msg, WPARAM wp, LPARAM lp) {
     return DefWindowProc(m_hwnd, msg, wp, lp);
 }
 
-// ---- Initialization ----
-
 void AppWindow::onCreate() {
+    m_closeBtn = CreateWindowExW(
+        0, L"BUTTON", L"X",
+        WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        0, 0, 28, 28,
+        m_hwnd, (HMENU)(UINT_PTR)ID_CLOSE, m_hInstance, nullptr);
+    m_closeFont = CreateFontW(14, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
+                              DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+                              CLEARTYPE_QUALITY, DEFAULT_PITCH, L"Segoe UI Variable");
+    SendMessage(m_closeBtn, WM_SETFONT, (WPARAM)m_closeFont, TRUE);
+
     m_searchBox = CreateWindowExW(
         0, L"EDIT", L"",
         WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL | WS_BORDER,
@@ -155,16 +160,6 @@ void AppWindow::onCreate() {
 
     SendMessageW(m_searchBox, EM_SETCUEBANNER, FALSE,
                  (LPARAM)L"Type to search clipboard history...");
-
-    m_closeBtn = CreateWindowExW(
-        0, L"BUTTON", L"X",
-        WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_FLAT,
-        0, 0, 28, 28,
-        m_hwnd, (HMENU)(UINT_PTR)ID_CLOSE, m_hInstance, nullptr);
-    m_closeFont = CreateFontW(14, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
-                              DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-                              CLEARTYPE_QUALITY, DEFAULT_PITCH, L"Segoe UI Variable");
-    SendMessage(m_closeBtn, WM_SETFONT, (WPARAM)m_closeFont, TRUE);
 
     m_listView = CreateWindowExW(
         0, WC_LISTVIEWW, L"",
@@ -204,8 +199,6 @@ void AppWindow::onSize(int width, int height) {
 
     updateWindowRegion(width, height);
 }
-
-// ---- Data Loading ----
 
 void AppWindow::refreshList(const std::string& filter) {
     std::string response;
@@ -268,16 +261,12 @@ void AppWindow::updateListView(const std::vector<ClipItem>& items) {
     InvalidateRect(m_listView, nullptr, TRUE);
 }
 
-// ---- Search ----
-
 void AppWindow::onSearch() {
     wchar_t text[256];
     GetWindowTextW(m_searchBox, text, 256);
     std::string filter = toNarrow(text);
     refreshList(filter);
 }
-
-// ---- Context Menu ----
 
 void AppWindow::onContextMenu(POINT pt) {
     int idx = ListView_GetSelectionMark(m_listView);
@@ -362,29 +351,10 @@ void AppWindow::deleteItem(int index) {
     SendMessageW(m_statusBar, SB_SETTEXT, 0, (LPARAM)status);
 }
 
-// ---- DWM Effects ----
-
-void AppWindow::applyAcrylic() {
-    BOOL useDark = FALSE;
-    DwmSetWindowAttribute(m_hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE,
-                          &useDark, sizeof(useDark));
-    int backdrop = 4;
-    DwmSetWindowAttribute(m_hwnd, (DWMWINDOWATTRIBUTE)38,
-                          &backdrop, sizeof(backdrop));
-}
-
-void AppWindow::setWindowCorners() {
-    int cornerPref = 1;
-    DwmSetWindowAttribute(m_hwnd, (DWMWINDOWATTRIBUTE)33,
-                          &cornerPref, sizeof(cornerPref));
-}
-
 void AppWindow::updateWindowRegion(int width, int height) {
     HRGN hRgn = CreateRoundRectRgn(0, 0, width + 1, height + 1, 16, 16);
     SetWindowRgn(m_hwnd, hRgn, TRUE);
 }
-
-// ---- Utilities ----
 
 std::wstring AppWindow::toWide(const std::string& s) {
     if (s.empty()) return L"";

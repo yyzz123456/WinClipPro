@@ -40,9 +40,7 @@ private:
     void pinItem(int index);
     void deleteItem(int index);
 
-    void applyAcrylic();
     void updateListView(const std::vector<ClipItem>& items);
-    void setWindowCorners();
     void updateWindowRegion(int width, int height);
     static std::string formatTimestamp(long long ts);
     static std::wstring toWide(const std::string& s);
