@@ -43,12 +43,11 @@ static bool startJavaBackend() {
     wchar_t* lastSlash = wcsrchr(jarPath, L'\\');
     if (lastSlash) *(lastSlash + 1) = L'\0';
 
-    std::wstring classpath = std::wstring(jarPath) +
-        L"..\\JavaBackend\\lib\\sqlite-jdbc-3.42.0.0.jar;" +
-        std::wstring(jarPath) +
-        L"..\\JavaBackend\\lib\\gson-2.10.1.jar;" +
-        std::wstring(jarPath) +
-        L"..\\JavaBackend\\src";
+    // Navigate from exe dir (x64/Debug/) up to project root
+    std::wstring projRoot = std::wstring(jarPath) + L"..\\..\\..\\";
+    std::wstring classpath = projRoot + L"JavaBackend\\lib\\sqlite-jdbc-3.42.0.0.jar;" +
+        projRoot + L"JavaBackend\\lib\\gson-2.10.1.jar;" +
+        projRoot + L"JavaBackend\\src";
 
     STARTUPINFOW si{};
     si.cb = sizeof(si);
@@ -60,7 +59,7 @@ static bool startJavaBackend() {
     if (CreateProcessW(nullptr, (LPWSTR)cmdLine.c_str(),
                        nullptr, nullptr, FALSE,
                        CREATE_NO_WINDOW, nullptr,
-                       jarPath, &si, &pi)) {
+                       projRoot.c_str(), &si, &pi)) {
         CloseHandle(pi.hProcess);
         CloseHandle(pi.hThread);
 
