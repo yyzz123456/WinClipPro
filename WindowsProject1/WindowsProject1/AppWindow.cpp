@@ -71,10 +71,10 @@ bool AppWindow::create() {
     if (!m_hwnd) return false;
 
     bool dark = IsDarkMode();
-    BOOL useDark = dark ? TRUE : FALSE;
+    BOOL useDark = FALSE; // Force light appearance for whiter base
     DwmSetWindowAttribute(m_hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &useDark, sizeof(useDark));
 
-    int backdrop = 3;
+    int backdrop = 4; // Acrylic (lighter than Mica)
     DwmSetWindowAttribute(m_hwnd, (DWMWINDOWATTRIBUTE)38, &backdrop, sizeof(backdrop));
 
     // DWMWCP_ROUND = 2 (NOT 1 which is DONOTROUND!)
