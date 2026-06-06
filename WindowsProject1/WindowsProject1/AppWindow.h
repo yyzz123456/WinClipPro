@@ -2,6 +2,7 @@
 #include <windows.h>
 #include <commctrl.h>
 #include <gdiplus.h>
+#include <gdipluseffects.h>
 #include <vector>
 #include <string>
 #include "IpcClient.h"

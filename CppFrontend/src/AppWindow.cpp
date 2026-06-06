@@ -1,3 +1,4 @@
+#undef WIN32_LEAN_AND_MEAN
 #include "AppWindow.h"
 #include "JsonHelper.h"
 #include <dwmapi.h>
