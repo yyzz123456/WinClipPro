@@ -62,15 +62,13 @@ bool AppWindow::create() {
     m_targetH = height;
 
     m_hwnd = CreateWindowExW(
-        WS_EX_TOOLWINDOW | WS_EX_LAYERED,
+        WS_EX_TOOLWINDOW,
         CLASS_NAME, L"Clipper",
         WS_POPUP | WS_THICKFRAME | WS_SYSMENU,
         m_targetX, m_targetY, m_targetW, m_targetH,
         nullptr, nullptr, m_hInstance, nullptr);
 
     if (!m_hwnd) return false;
-
-    SetLayeredWindowAttributes(m_hwnd, 0, 200, LWA_ALPHA);
 
     bool dark = IsDarkMode();
     BOOL useDark = FALSE; // Force light appearance for whiter base
@@ -95,7 +93,7 @@ bool AppWindow::create() {
             struct { int State, Flags, Color, AnimId; } p{};
             p.State = 4;   // ACCENT_ENABLE_ACRYLICBLURBEHIND
             p.Flags = 2;   // full acrylic noise texture
-            p.Color = dark ? 0x10000000 : 0x20FFFFFF;
+            p.Color = dark ? 0x60000000 : 0x80FFFFFF;
             struct { int A; void* D; ULONG S; } d{19, &p, sizeof(p)};
             fn(m_hwnd, &d);
         }
