@@ -41,7 +41,6 @@ private:
     void deleteItem(int index);
 
     void updateListView(const std::vector<ClipItem>& items);
-    void updateWindowRegion(int width, int height);
     static std::string formatTimestamp(long long ts);
     static std::wstring toWide(const std::string& s);
     static std::string toNarrow(const std::wstring& ws);

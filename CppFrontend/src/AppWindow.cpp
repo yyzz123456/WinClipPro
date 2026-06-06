@@ -1,11 +1,23 @@
 #include "AppWindow.h"
 #include "JsonHelper.h"
+#include <dwmapi.h>
 #include <sstream>
 #include <ctime>
 
+#pragma comment(lib, "dwmapi.lib")
 #pragma comment(lib, "comctl32.lib")
 
 AppWindow* AppWindow::s_instance = nullptr;
+
+static bool IsDarkMode() {
+    DWORD dark = 0;
+    DWORD size = sizeof(dark);
+    // Check system dark mode setting
+    RegGetValueW(HKEY_CURRENT_USER,
+        L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
+        L"AppsUseLightTheme", RRF_RT_REG_DWORD, nullptr, &dark, &size);
+    return dark == 0;
+}
 
 AppWindow::AppWindow(HINSTANCE hInstance) : m_hInstance(hInstance) {
     s_instance = this;
@@ -29,7 +41,7 @@ bool AppWindow::create(int width, int height) {
     wc.lpfnWndProc = WndProc;
     wc.hInstance = m_hInstance;
     wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
-    wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+    wc.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
     wc.lpszClassName = CLASS_NAME;
     RegisterClassExW(&wc);
 
@@ -40,7 +52,7 @@ bool AppWindow::create(int width, int height) {
     int y = (workArea.bottom - height) / 2;
 
     m_hwnd = CreateWindowExW(
-        WS_EX_TOOLWINDOW,
+        WS_EX_TOOLWINDOW | WS_EX_LAYERED,
         CLASS_NAME, L"Clipper",
         WS_POPUP | WS_THICKFRAME | WS_SYSMENU,
         x, y, width, height,
@@ -48,7 +60,17 @@ bool AppWindow::create(int width, int height) {
 
     if (!m_hwnd) return false;
 
-    updateWindowRegion(width, height);
+    SetLayeredWindowAttributes(m_hwnd, 0, 240, LWA_ALPHA);
+
+    // Windows 11 Mica/Acrylic backdrop
+    BOOL useDark = IsDarkMode() ? TRUE : FALSE;
+    DwmSetWindowAttribute(m_hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &useDark, sizeof(useDark));
+    int backdrop = 4; // DWMSBT_TABBEDWINDOW
+    DwmSetWindowAttribute(m_hwnd, (DWMWINDOWATTRIBUTE)38, &backdrop, sizeof(backdrop));
+
+    // Extend DWM frame into client area for glass effect
+    MARGINS margins{-1};
+    DwmExtendFrameIntoClientArea(m_hwnd, &margins);
 
     return true;
 }
@@ -87,20 +109,10 @@ LRESULT AppWindow::handleMsg(UINT msg, WPARAM wp, LPARAM lp) {
                 if (hit == HTCLIENT) {
                     POINT pt = {LOWORD(lp), HIWORD(lp)};
                     ScreenToClient(m_hwnd, &pt);
-                    // Allow dragging from top 40px area
                     if (pt.y < 40) return HTCAPTION;
                 }
                 return hit;
             }
-        case WM_ERASEBKGND:
-            {
-                RECT rc;
-                GetClientRect(m_hwnd, &rc);
-                HBRUSH hBr = CreateSolidBrush(RGB(32, 32, 32));
-                FillRect((HDC)wp, &rc, hBr);
-                DeleteObject(hBr);
-            }
-            return 1;
         case WM_COMMAND:
             if (HIWORD(wp) == BN_CLICKED && LOWORD(wp) == ID_CLOSE) {
                 hide();
@@ -204,8 +216,6 @@ void AppWindow::onSize(int width, int height) {
     col.mask = LVCF_WIDTH;
     col.cx = width - 40;
     ListView_SetColumn(m_listView, 0, &col);
-
-    updateWindowRegion(width, height);
 }
 
 void AppWindow::refreshList(const std::string& filter) {
@@ -350,11 +360,6 @@ void AppWindow::deleteItem(int index) {
     wchar_t status[64];
     swprintf_s(status, L" %zu items  |  Win+V to toggle", m_items.size());
     SendMessageW(m_statusBar, SB_SETTEXT, 0, (LPARAM)status);
-}
-
-void AppWindow::updateWindowRegion(int width, int height) {
-    HRGN hRgn = CreateRoundRectRgn(0, 0, width + 1, height + 1, 16, 16);
-    SetWindowRgn(m_hwnd, hRgn, TRUE);
 }
 
 std::wstring AppWindow::toWide(const std::string& s) {
