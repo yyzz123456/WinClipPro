@@ -73,28 +73,19 @@ bool AppWindow::create() {
     BOOL useDark = dark ? TRUE : FALSE;
     DwmSetWindowAttribute(m_hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &useDark, sizeof(useDark));
 
-    HMODULE hUser32 = GetModuleHandleW(L"user32.dll");
-    if (hUser32) {
-        using fn_t = BOOL(WINAPI*)(HWND, void*);
-        auto fn = (fn_t)GetProcAddress(hUser32, "SetWindowCompositionAttribute");
-        if (fn) {
-            struct { int State, Flags, Color, AnimId; } p{};
-            p.State = 4;
-            p.Color = dark ? 0xA0000000 : 0xD0FFFFFF;
-            struct { int A; void* D; ULONG S; } d{19, &p, sizeof(p)};
-            fn(m_hwnd, &d);
-        }
-    }
+    // Mica backdrop
+    int backdrop = 3;
+    DwmSetWindowAttribute(m_hwnd, (DWMWINDOWATTRIBUTE)38, &backdrop, sizeof(backdrop));
 
-    HRGN hRgn = CreateRoundRectRgn(0, 0, m_targetW + 1, m_targetH + 1, 16, 16);
-    SetWindowRgn(m_hwnd, hRgn, TRUE);
+    // DWMWCP_ROUND = 2 (NOT 1 which is DONOTROUND!)
+    int cornerPref = 2;
+    DwmSetWindowAttribute(m_hwnd, (DWMWINDOWATTRIBUTE)33, &cornerPref, sizeof(cornerPref));
+
+    // Full-window glass
+    MARGINS margins{-1};
+    DwmExtendFrameIntoClientArea(m_hwnd, &margins);
 
     return true;
-}
-
-void AppWindow::applyRegion() {
-    HRGN hRgn = CreateRoundRectRgn(0, 0, m_targetW + 1, m_targetH + 1, 16, 16);
-    SetWindowRgn(m_hwnd, hRgn, TRUE);
 }
 
 void AppWindow::show() {
@@ -111,7 +102,6 @@ void AppWindow::show() {
     SetWindowPos(m_hwnd, nullptr, m_targetX, workArea.bottom, m_targetW, m_targetH,
                  SWP_NOZORDER | SWP_NOACTIVATE);
     ShowWindow(m_hwnd, SW_SHOWNOACTIVATE);
-    applyRegion();
 
     const int STEPS = 4;
     const int DURATION = 50;
@@ -123,7 +113,6 @@ void AppWindow::show() {
     }
 
     SetWindowPos(m_hwnd, nullptr, m_targetX, m_targetY, m_targetW, m_targetH, SWP_NOZORDER);
-    applyRegion();
     SetForegroundWindow(m_hwnd);
     SetFocus(m_searchBox);
 }
@@ -165,9 +154,6 @@ LRESULT AppWindow::handleMsg(UINT msg, WPARAM wp, LPARAM lp) {
     switch (msg) {
         case WM_CREATE: onCreate(); return 0;
         case WM_SIZE:   onSize(LOWORD(lp), HIWORD(lp)); return 0;
-        case WM_SHOWWINDOW:
-            if (wp == TRUE) applyRegion();
-            break;
         case WM_NCHITTEST:
             {
                 LRESULT hit = DefWindowProc(m_hwnd, msg, wp, lp);
