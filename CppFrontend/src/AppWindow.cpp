@@ -101,8 +101,8 @@ bool AppWindow::create() {
                 ULONG cbData;
             };
             AccentPolicy policy{};
-            policy.AccentState = 4; // ACCENT_ENABLE_ACRYLICBLURBEHIND
-            policy.GradientColor = 0x01000000; // near-transparent for maximum blur
+            policy.AccentState = 3; // ACCENT_ENABLE_BLURBEHIND - pure blur, no acrylic tint
+            policy.GradientColor = 0x00000000;
             WinCompAttrData data{};
             data.Attribute = 19; // WCA_ACCENT_POLICY
             data.pData = &policy;
