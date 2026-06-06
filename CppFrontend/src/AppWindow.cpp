@@ -54,6 +54,7 @@ bool AppWindow::create(int width, int height) {
     SetLayeredWindowAttributes(m_hwnd, 0, 230, LWA_ALPHA);
     setWindowCorners();
     applyAcrylic();
+    updateWindowRegion(width, height);
 
     return true;
 }
@@ -89,6 +90,10 @@ LRESULT AppWindow::handleMsg(UINT msg, WPARAM wp, LPARAM lp) {
         case WM_CREATE: onCreate(); return 0;
         case WM_SIZE:   onSize(LOWORD(lp), HIWORD(lp)); return 0;
         case WM_COMMAND:
+            if (HIWORD(wp) == BN_CLICKED && LOWORD(wp) == ID_CLOSE) {
+                hide();
+                return 0;
+            }
             if (HIWORD(wp) == EN_CHANGE && LOWORD(wp) == ID_SEARCH) onSearch();
             return 0;
         case WM_NOTIFY:
@@ -165,6 +170,17 @@ void AppWindow::onCreate() {
     col.cx = 500;
     ListView_InsertColumn(m_listView, 0, &col);
 
+    // Close button
+    m_closeBtn = CreateWindowExW(
+        0, L"BUTTON", L"X",
+        WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_FLAT,
+        0, 0, 26, 26,
+        m_hwnd, (HMENU)(UINT_PTR)ID_CLOSE, m_hInstance, nullptr);
+    HFONT hCloseFont = CreateFontW(14, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
+                                   DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+                                   CLEARTYPE_QUALITY, DEFAULT_PITCH, L"Segoe UI Variable");
+    SendMessage(m_closeBtn, WM_SETFONT, (WPARAM)hCloseFont, TRUE);
+
     // Status bar
     m_statusBar = CreateWindowExW(
         0, STATUSCLASSNAMEW, L"",
@@ -174,8 +190,9 @@ void AppWindow::onCreate() {
 }
 
 void AppWindow::onSize(int width, int height) {
+    SetWindowPos(m_closeBtn, nullptr, width - 40, 10, 26, 26, SWP_NOZORDER);
     SetWindowPos(m_searchBox, nullptr, 0, 0,
-                 width - 24, 28, SWP_NOMOVE | SWP_NOZORDER);
+                 width - 56, 28, SWP_NOMOVE | SWP_NOZORDER);
     SetWindowPos(m_listView, nullptr, 0, 0,
                  width - 24, height - 90, SWP_NOMOVE | SWP_NOZORDER);
     SendMessage(m_listView, WM_SIZE, 0, 0);
@@ -186,6 +203,8 @@ void AppWindow::onSize(int width, int height) {
     col.mask = LVCF_WIDTH;
     col.cx = width - 40;
     ListView_SetColumn(m_listView, 0, &col);
+
+    updateWindowRegion(width, height);
 }
 
 // ---- Data Loading ----
@@ -373,6 +392,11 @@ void AppWindow::setWindowCorners() {
     int cornerPref = 1;
     DwmSetWindowAttribute(m_hwnd, (DWMWINDOWATTRIBUTE)33,
                           &cornerPref, sizeof(cornerPref));
+}
+
+void AppWindow::updateWindowRegion(int width, int height) {
+    HRGN hRgn = CreateRoundRectRgn(0, 0, width + 1, height + 1, 12, 12);
+    SetWindowRgn(m_hwnd, hRgn, TRUE);
 }
 
 // ---- Utilities ----
