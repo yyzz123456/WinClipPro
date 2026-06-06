@@ -339,16 +339,22 @@ void AppWindow::copyToClipboard(int index) {
             fileList += L'\0';
 
             size_t fileListBytes = fileList.size() * sizeof(wchar_t);
-            size_t dropSize = sizeof(DROPFILES) + fileListBytes;
+            // DROPFILES struct layout: pFiles(4) + pt.x(4) + pt.y(4) + fNC(4) + fWide(4)
+            const UINT DROP_HEADER_SIZE = 20;
+            size_t dropSize = DROP_HEADER_SIZE + fileListBytes;
             HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, dropSize);
             if (hMem) {
-                DROPFILES* df = (DROPFILES*)GlobalLock(hMem);
-                df->pFiles = sizeof(DROPFILES);
-                df->pt.x = 0;
-                df->pt.y = 0;
-                df->fNC = FALSE;
-                df->fWide = TRUE;
-                memcpy((BYTE*)df + sizeof(DROPFILES), fileList.c_str(), fileListBytes);
+                BYTE* p = (BYTE*)GlobalLock(hMem);
+                // pFiles = offset to file list = sizeof(DROPFILES) = 20
+                p[0] = 20; p[1] = 0; p[2] = 0; p[3] = 0;
+                // pt.x = 0, pt.y = 0
+                *(UINT*)(p + 4) = 0;
+                *(UINT*)(p + 8) = 0;
+                // fNC = FALSE
+                *(UINT*)(p + 12) = 0;
+                // fWide = TRUE
+                *(UINT*)(p + 16) = 1;
+                memcpy(p + DROP_HEADER_SIZE, fileList.c_str(), fileListBytes);
                 GlobalUnlock(hMem);
                 OpenClipboard(m_hwnd);
                 EmptyClipboard();
