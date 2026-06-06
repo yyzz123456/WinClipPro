@@ -66,13 +66,17 @@ bool AppWindow::create() {
     m_hwnd = CreateWindowExW(
         WS_EX_TOOLWINDOW | WS_EX_LAYERED,
         CLASS_NAME, L"Clipper",
-        WS_POPUP | WS_THICKFRAME | WS_SYSMENU,
+        WS_POPUP | WS_SYSMENU,
         m_targetX, m_targetY, m_targetW, m_targetH,
         nullptr, nullptr, m_hInstance, nullptr);
 
     if (!m_hwnd) return false;
 
     SetLayeredWindowAttributes(m_hwnd, 0, 230, LWA_ALPHA);
+
+    // Set rounded region BEFORE DWM frame extension so glass inherits shape
+    HRGN hRgn = CreateRoundRectRgn(0, 0, m_targetW + 1, m_targetH + 1, 12, 12);
+    SetWindowRgn(m_hwnd, hRgn, TRUE);
 
     BOOL useDark = dark ? TRUE : FALSE;
     DwmSetWindowAttribute(m_hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &useDark, sizeof(useDark));
@@ -89,7 +93,7 @@ bool AppWindow::create() {
     DWM_BLURBEHIND bb{};
     bb.dwFlags = DWM_BB_ENABLE | DWM_BB_BLURREGION;
     bb.fEnable = TRUE;
-    bb.hRgnBlur = CreateRectRgn(0, 0, m_targetW, m_targetH);
+    bb.hRgnBlur = CreateRoundRectRgn(0, 0, m_targetW + 1, m_targetH + 1, 12, 12);
     DwmEnableBlurBehindWindow(m_hwnd, &bb);
 
     HMODULE hUser32 = GetModuleHandleW(L"user32.dll");
@@ -119,10 +123,6 @@ bool AppWindow::create() {
             pSetWindowCompositionAttribute(m_hwnd, &data);
         }
     }
-
-    // Round corners to align glass with window shape
-    HRGN hRgn = CreateRoundRectRgn(0, 0, m_targetW + 1, m_targetH + 1, 12, 12);
-    SetWindowRgn(m_hwnd, hRgn, TRUE);
 
     return true;
 }
