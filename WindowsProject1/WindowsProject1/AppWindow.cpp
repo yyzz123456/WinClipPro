@@ -44,7 +44,9 @@ bool AppWindow::create() {
     wc.lpfnWndProc = WndProc;
     wc.hInstance = m_hInstance;
     wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
-    wc.hbrBackground = CreateSolidBrush(RGB(32, 32, 32));
+    bool dark = IsDarkMode();
+    wc.hbrBackground = dark ? CreateSolidBrush(RGB(32, 32, 32))
+                             : CreateSolidBrush(RGB(243, 243, 243));
     wc.lpszClassName = CLASS_NAME;
     RegisterClassExW(&wc);
 
@@ -71,12 +73,11 @@ bool AppWindow::create() {
 
     if (!m_hwnd) return false;
 
-    BOOL useDark = IsDarkMode() ? TRUE : FALSE;
+    BOOL useDark = dark ? TRUE : FALSE;
     DwmSetWindowAttribute(m_hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &useDark, sizeof(useDark));
     int backdrop = 4;
     DwmSetWindowAttribute(m_hwnd, (DWMWINDOWATTRIBUTE)38, &backdrop, sizeof(backdrop));
 
-    // Use SetWindowCompositionAttribute for acrylic blur
     HMODULE hUser32 = GetModuleHandleW(L"user32.dll");
     if (hUser32) {
         using SetWindowCompositionAttribute_t = BOOL(WINAPI*)(HWND, void*);
@@ -96,7 +97,7 @@ bool AppWindow::create() {
             };
             AccentPolicy policy{};
             policy.AccentState = 4; // ACCENT_ENABLE_ACRYLICBLURBEHIND
-            policy.GradientColor = 0x30000000;
+            policy.GradientColor = dark ? 0x30000000 : 0x30FFFFFF;
             WinCompAttrData data{};
             data.Attribute = 19; // WCA_ACCENT_POLICY
             data.pData = &policy;
