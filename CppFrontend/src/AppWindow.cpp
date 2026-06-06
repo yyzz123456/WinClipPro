@@ -61,36 +61,43 @@ bool AppWindow::create() {
     m_targetH = height;
 
     m_hwnd = CreateWindowExW(
-        WS_EX_TOOLWINDOW | WS_EX_LAYERED,
+        WS_EX_TOOLWINDOW,
         CLASS_NAME, L"Clipper",
-        WS_POPUP | WS_THICKFRAME | WS_SYSMENU,
+        WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME,
         m_targetX, m_targetY, m_targetW, m_targetH,
         nullptr, nullptr, m_hInstance, nullptr);
 
     if (!m_hwnd) return false;
 
-    SetLayeredWindowAttributes(m_hwnd, 0, 220, LWA_ALPHA);
-
     bool dark = IsDarkMode();
     BOOL useDark = dark ? TRUE : FALSE;
     DwmSetWindowAttribute(m_hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &useDark, sizeof(useDark));
+
+    // Enable Mica backdrop
     int backdrop = 3;
     DwmSetWindowAttribute(m_hwnd, (DWMWINDOWATTRIBUTE)38, &backdrop, sizeof(backdrop));
 
-    DWM_BLURBEHIND bb{};
-    bb.dwFlags = DWM_BB_ENABLE | DWM_BB_BLURREGION;
-    bb.fEnable = TRUE;
-    bb.hRgnBlur = CreateRoundRectRgn(0, 0, m_targetW + 1, m_targetH + 1, 12, 12);
-    DwmEnableBlurBehindWindow(m_hwnd, &bb);
+    // Request DWM rounded corners
+    int cornerPref = 1;
+    DwmSetWindowAttribute(m_hwnd, (DWMWINDOWATTRIBUTE)33, &cornerPref, sizeof(cornerPref));
 
+    // Extend DWM frame into entire client area for seamless glass
+    MARGINS margins{0, 0, 0, 1};
+    DwmExtendFrameIntoClientArea(m_hwnd, &margins);
+
+    // Remove the title bar area by making the entire window client area
+    SetWindowPos(m_hwnd, nullptr, 0, 0, 0, 0,
+                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
+
+    // Also apply acrylic via composition attribute
     HMODULE hUser32 = GetModuleHandleW(L"user32.dll");
     if (hUser32) {
         using SetWindowCompositionAttribute_t = BOOL(WINAPI*)(HWND, void*);
         auto fn = (SetWindowCompositionAttribute_t)GetProcAddress(hUser32, "SetWindowCompositionAttribute");
         if (fn) {
             struct { int State, Flags, Color, AnimId; } policy{};
-            policy.State = 4;
-            policy.Color = dark ? 0xB0000000 : 0xE0FFFFFF;
+            policy.State = 3;
+            policy.Color = dark ? 0x60000000 : 0x80FFFFFF;
             struct { int Attr; void* Data; ULONG Size; } data{};
             data.Attr = 19;
             data.Data = &policy;
@@ -98,10 +105,6 @@ bool AppWindow::create() {
             fn(m_hwnd, &data);
         }
     }
-
-    // Rounded corners via region - works on all Windows versions
-    HRGN hRgn = CreateRoundRectRgn(0, 0, m_targetW + 1, m_targetH + 1, 16, 16);
-    SetWindowRgn(m_hwnd, hRgn, TRUE);
 
     return true;
 }
@@ -172,6 +175,13 @@ LRESULT AppWindow::handleMsg(UINT msg, WPARAM wp, LPARAM lp) {
     switch (msg) {
         case WM_CREATE: onCreate(); return 0;
         case WM_SIZE:   onSize(LOWORD(lp), HIWORD(lp)); return 0;
+        case WM_NCCALCSIZE:
+            if (wp == TRUE) {
+                NCCALCSIZE_PARAMS* p = (NCCALCSIZE_PARAMS*)lp;
+                p->rgrc[0] = p->rgrc[1];
+                return 0;
+            }
+            break;
         case WM_NCHITTEST:
             {
                 LRESULT hit = DefWindowProc(m_hwnd, msg, wp, lp);
