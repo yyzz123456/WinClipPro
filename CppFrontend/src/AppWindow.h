@@ -1,9 +1,9 @@
 #pragma once
 #include <windows.h>
 #include <commctrl.h>
-#include <gdiplus.h>
-#include <gdipluseffects.h>
 #include <vector>
+
+namespace Gdiplus { class Bitmap; }
 #include <string>
 #include "IpcClient.h"
 #include "nlohmann/json.hpp"

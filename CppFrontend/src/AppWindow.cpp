@@ -1,9 +1,12 @@
-#undef WIN32_LEAN_AND_MEAN
 #include "AppWindow.h"
 #include "JsonHelper.h"
 #include <dwmapi.h>
 #include <shellapi.h>
 #include <windowsx.h>
+#include <ole2.h>
+#define GDIPVER 0x0110
+#include <gdiplus.h>
+#include <gdipluseffects.h>
 #include <sstream>
 #include <ctime>
 
