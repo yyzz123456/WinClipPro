@@ -121,11 +121,13 @@ bool AppWindow::create() {
         }
     }
 
-    // Apply rounded region last and notify DWM
+    // Flush DWM then apply rounded region
+    DwmFlush();
     HRGN hRgn = CreateRoundRectRgn(0, 0, m_targetW + 1, m_targetH + 1, 12, 12);
     SetWindowRgn(m_hwnd, hRgn, TRUE);
     SetWindowPos(m_hwnd, nullptr, 0, 0, 0, 0,
                  SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+    DwmFlush();
 
     return true;
 }
