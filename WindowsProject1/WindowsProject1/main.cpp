@@ -133,16 +133,16 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow) {
         0, HELPER_CLASS, L"", 0,
         0, 0, 0, 0, nullptr, nullptr, hInstance, nullptr);
 
+    // Initialize IPC client first (needed by clipboard monitor)
+    g_ipc = new IpcClient();
+
     // Start clipboard monitoring
     g_clipMonitor = new ClipboardMonitor();
     g_clipMonitor->start(g_helperWnd, onClipboardChange);
 
-    // Register global hotkey Win+V
+    // Register global hotkey Alt+,
     g_hotkeyManager = new HotkeyManager();
     g_hotkeyManager->registerHotkey(g_helperWnd, MOD_ALT, VK_OEM_COMMA, HOTKEY_ID, onHotkey);
-
-    // Initialize IPC client
-    g_ipc = new IpcClient();
 
     // Start Java backend
     std::thread([]() {
