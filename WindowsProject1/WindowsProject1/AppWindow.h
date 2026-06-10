@@ -52,6 +52,14 @@ private:
     HWND m_closeBtn = nullptr;
     HFONT m_closeFont = nullptr;
     bool m_menuActive = false;
+    bool m_loadingData = false;
+    // Smooth timer-based animation
+    UINT_PTR m_animTimer = 0;
+    int m_animStep = 0;
+    int m_animTotalSteps = 0;
+    int m_animStartY = 0;
+    int m_animEndY = 0;
+    bool m_animShowing = false;
     int m_targetX = 0, m_targetY = 0, m_targetW = 0, m_targetH = 0;
     HINSTANCE m_hInstance;
     IpcClient m_ipc;
@@ -65,4 +73,9 @@ private:
     static constexpr int IDM_COPY = 2001;
     static constexpr int IDM_PIN = 2002;
     static constexpr int IDM_DELETE = 2003;
+
+    static constexpr UINT_PTR ANIM_TIMER_ID = 1;
+    static constexpr int WM_REFRESH_DATA = WM_APP + 1;
+
+    void applyRefreshResponse(const std::string& json);
 };

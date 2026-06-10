@@ -4,6 +4,20 @@
 #include <gdiplus.h>
 #pragma comment(lib, "gdiplus.lib")
 
+static ULONG_PTR s_gdiToken = 0;
+static int s_gdiRefCount = 0;
+
+static void GdiEnsure() {
+    if (s_gdiRefCount++ == 0) {
+        Gdiplus::GdiplusStartupInput in;
+        Gdiplus::GdiplusStartup(&s_gdiToken, &in, nullptr);
+    }
+}
+static void GdiRelease() {
+    if (--s_gdiRefCount == 0 && s_gdiToken)
+        Gdiplus::GdiplusShutdown(s_gdiToken);
+}
+
 ClipboardMonitor::ClipboardMonitor() {}
 ClipboardMonitor::~ClipboardMonitor() { stop(); }
 
@@ -101,11 +115,8 @@ std::string ClipboardMonitor::getClipboardImagePath() {
                st.wHour, st.wMinute, st.wSecond, st.wMilliseconds);
     std::wstring fullPath = imgDir + filename;
 
-    // Use GDI+ to save as PNG
-    Gdiplus::GdiplusStartupInput gdiInput;
-    ULONG_PTR gdiToken;
-    Gdiplus::GdiplusStartup(&gdiToken, &gdiInput, nullptr);
-
+    // Use GDI+ to save as PNG (ref-counted, init once)
+    GdiEnsure();
     Gdiplus::Bitmap* bmp = nullptr;
     if (pBMI->bmiHeader.biBitCount == 32) {
         bmp = new Gdiplus::Bitmap(pBMI->bmiHeader.biWidth,
@@ -113,7 +124,6 @@ std::string ClipboardMonitor::getClipboardImagePath() {
                                   pBMI->bmiHeader.biWidth * 4,
                                   PixelFormat32bppARGB, (BYTE*)pBits);
     } else {
-        // Create from DIB
         HDC hdc = GetDC(nullptr);
         HBITMAP hBmp = CreateDIBitmap(hdc, &pBMI->bmiHeader, CBM_INIT, pBits, pBMI, DIB_RGB_COLORS);
         if (hBmp) {
@@ -135,8 +145,7 @@ std::string ClipboardMonitor::getClipboardImagePath() {
         result = buf;
         delete[] buf;
     }
-
-    Gdiplus::GdiplusShutdown(gdiToken);
+    GdiRelease();
     GlobalUnlock(hData);
     CloseClipboard();
     return result;

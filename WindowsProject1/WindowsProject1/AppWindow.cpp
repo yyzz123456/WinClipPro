@@ -6,6 +6,7 @@
 #include <windowsx.h>
 #include <sstream>
 #include <ctime>
+#include <thread>
 
 #pragma comment(lib, "dwmapi.lib")
 #pragma comment(lib, "comctl32.lib")
@@ -110,7 +111,9 @@ void AppWindow::show() {
     RECT rc;
     GetClientRect(m_hwnd, &rc);
     onSize(rc.right, rc.bottom);
-    refreshList();
+
+    m_loadingData = false;  // allow fresh data load
+    SendMessageW(m_statusBar, SB_SETTEXT, 0, (LPARAM)L" Loading...");
 
     RECT workArea;
     SystemParametersInfo(SPI_GETWORKAREA, 0, &workArea, 0);
@@ -119,18 +122,15 @@ void AppWindow::show() {
                  SWP_NOZORDER | SWP_NOACTIVATE);
     ShowWindow(m_hwnd, SW_SHOWNOACTIVATE);
 
-    const int STEPS = 4;
-    const int DURATION = 50;
-    for (int i = 1; i <= STEPS; i++) {
-        int curY = workArea.bottom - (workArea.bottom - m_targetY) * i / STEPS;
-        SetWindowPos(m_hwnd, nullptr, m_targetX, curY, m_targetW, m_targetH,
-                     SWP_NOZORDER | SWP_NOACTIVATE);
-        Sleep(DURATION / STEPS);
-    }
+    // Start smooth slide-up animation (10ms timer = 100fps)
+    if (m_animTimer) { KillTimer(m_hwnd, ANIM_TIMER_ID); }
 
-    SetWindowPos(m_hwnd, nullptr, m_targetX, m_targetY, m_targetW, m_targetH, SWP_NOZORDER);
-    SetForegroundWindow(m_hwnd);
-    SetFocus(m_searchBox);
+    m_animStep = 0;
+    m_animTotalSteps = 15;   // 150ms total
+    m_animStartY = workArea.bottom;
+    m_animEndY = m_targetY;
+    m_animShowing = true;
+    m_animTimer = SetTimer(m_hwnd, ANIM_TIMER_ID, 10, nullptr);
 }
 
 void AppWindow::hide() {
@@ -142,17 +142,15 @@ void AppWindow::hide() {
     RECT workArea;
     SystemParametersInfo(SPI_GETWORKAREA, 0, &workArea, 0);
 
-    const int STEPS = 3;
-    const int DURATION = 30;
-    for (int i = 1; i <= STEPS; i++) {
-        int curY = winRect.top + (workArea.bottom - winRect.top) * i / STEPS;
-        SetWindowPos(m_hwnd, nullptr, winRect.left, curY, m_targetW, m_targetH,
-                     SWP_NOZORDER | SWP_NOACTIVATE);
-        Sleep(DURATION / STEPS);
-    }
+    // Start smooth slide-down animation
+    if (m_animTimer) { KillTimer(m_hwnd, ANIM_TIMER_ID); }
 
-    SetWindowPos(m_hwnd, nullptr, m_targetX, m_targetY, m_targetW, m_targetH, SWP_NOZORDER);
-    ShowWindow(m_hwnd, SW_HIDE);
+    m_animStep = 0;
+    m_animTotalSteps = 10;   // 100ms total
+    m_animStartY = winRect.top;
+    m_animEndY = workArea.bottom;
+    m_animShowing = false;
+    m_animTimer = SetTimer(m_hwnd, ANIM_TIMER_ID, 10, nullptr);
 }
 
 void AppWindow::toggle() {
@@ -170,6 +168,45 @@ LRESULT AppWindow::handleMsg(UINT msg, WPARAM wp, LPARAM lp) {
     switch (msg) {
         case WM_CREATE: onCreate(); return 0;
         case WM_SIZE:   onSize(LOWORD(lp), HIWORD(lp)); return 0;
+        case WM_TIMER:
+            if (wp == ANIM_TIMER_ID) {
+                m_animStep++;
+                if (m_animStep >= m_animTotalSteps) {
+                    KillTimer(m_hwnd, ANIM_TIMER_ID);
+                    m_animTimer = 0;
+                    if (m_animShowing) {
+                        SetWindowPos(m_hwnd, nullptr, m_targetX, m_targetY, m_targetW, m_targetH, SWP_NOZORDER);
+                        SetForegroundWindow(m_hwnd);
+                        SetFocus(m_searchBox);
+                        // Load data asynchronously after animation
+                        if (!m_loadingData) {
+                            m_loadingData = true;
+                            std::thread([this]() {
+                                IpcClient ipc;
+                                std::string response = ipc.queryHistory(0, 100);
+                                std::string* pResp = new std::string(std::move(response));
+                                PostMessage(m_hwnd, WM_REFRESH_DATA, 0, (LPARAM)pResp);
+                            }).detach();
+                        }
+                    } else {
+                        SetWindowPos(m_hwnd, nullptr, m_targetX, m_targetY, m_targetW, m_targetH, SWP_NOZORDER);
+                        ShowWindow(m_hwnd, SW_HIDE);
+                    }
+                } else {
+                    int curY = m_animStartY + (m_animEndY - m_animStartY) * m_animStep / m_animTotalSteps;
+                    SetWindowPos(m_hwnd, nullptr, m_targetX, curY, m_targetW, m_targetH,
+                                 SWP_NOZORDER | SWP_NOACTIVATE);
+                }
+            }
+            return 0;
+        case WM_REFRESH_DATA: {
+            std::string* pResp = (std::string*)lp;
+            if (pResp) {
+                applyRefreshResponse(*pResp);
+                delete pResp;
+            }
+            return 0;
+        }
         case WM_NCHITTEST:
             {
                 LRESULT hit = DefWindowProc(m_hwnd, msg, wp, lp);
@@ -307,6 +344,34 @@ void AppWindow::updateListView(const std::vector<ClipItem>& items) {
     }
     SendMessage(m_listView, WM_SETREDRAW, TRUE, 0);
     InvalidateRect(m_listView, nullptr, TRUE);
+}
+
+void AppWindow::applyRefreshResponse(const std::string& jsonStr) {
+    m_loadingData = false;
+    try {
+        json j = json::parse(jsonStr);
+        if (j["status"] != "ok") {
+            SendMessageW(m_statusBar, SB_SETTEXT, 0, (LPARAM)L" Backend not connected");
+            return;
+        }
+        m_items.clear();
+        for (auto& item : j["data"]["items"]) {
+            ClipItem ci;
+            ci.id = item["id"];
+            ci.content = item["content"];
+            ci.contentType = item.value("contentType", "text");
+            ci.timestamp = item["timestamp"];
+            ci.pinned = item.value("isPinned", 0) == 1;
+            m_items.push_back(ci);
+        }
+        updateListView(m_items);
+    } catch (...) {
+        SendMessageW(m_statusBar, SB_SETTEXT, 0, (LPARAM)L" Backend not connected - start Java first");
+    }
+
+    wchar_t status[64];
+    swprintf_s(status, L" %zu items  |  Alt+, to toggle", m_items.size());
+    SendMessageW(m_statusBar, SB_SETTEXT, 0, (LPARAM)status);
 }
 
 void AppWindow::onSearch() {

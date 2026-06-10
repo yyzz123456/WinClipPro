@@ -17,16 +17,33 @@ bool IpcClient::connect() {
     m_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (m_socket == INVALID_SOCKET) return false;
 
+    // Non-blocking connect with 2s timeout
+    u_long mode = 1;
+    ioctlsocket(m_socket, FIONBIO, &mode);
+
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
     addr.sin_port = htons(9099);
     addr.sin_addr.s_addr = inet_addr("127.0.0.1");
 
-    if (::connect(m_socket, (sockaddr*)&addr, sizeof(addr)) == SOCKET_ERROR) {
+    ::connect(m_socket, (sockaddr*)&addr, sizeof(addr));
+
+    fd_set fdSet;
+    FD_ZERO(&fdSet);
+    FD_SET(m_socket, &fdSet);
+    timeval tv{2, 0};
+    if (select(0, nullptr, &fdSet, nullptr, &tv) <= 0) {
         closesocket(m_socket);
         m_socket = INVALID_SOCKET;
         return false;
     }
+
+    // Back to blocking + recv/send timeouts
+    mode = 0;
+    ioctlsocket(m_socket, FIONBIO, &mode);
+    int timeout = 2000;
+    setsockopt(m_socket, SOL_SOCKET, SO_RCVTIMEO, (char*)&timeout, sizeof(timeout));
+    setsockopt(m_socket, SOL_SOCKET, SO_SNDTIMEO, (char*)&timeout, sizeof(timeout));
 
     m_connected = true;
     return true;
