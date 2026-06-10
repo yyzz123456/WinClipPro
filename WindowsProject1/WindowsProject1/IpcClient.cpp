@@ -15,36 +15,31 @@ IpcClient::~IpcClient() {
 
 bool IpcClient::connect() {
     m_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (m_socket == INVALID_SOCKET) return false;
-
-    // Non-blocking connect with 2s timeout
-    u_long mode = 1;
-    ioctlsocket(m_socket, FIONBIO, &mode);
+    if (m_socket == INVALID_SOCKET) {
+        OutputDebugStringW(L"[Clipper] IPC socket() failed\n");
+        return false;
+    }
 
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
     addr.sin_port = htons(9099);
     addr.sin_addr.s_addr = inet_addr("127.0.0.1");
 
-    ::connect(m_socket, (sockaddr*)&addr, sizeof(addr));
-
-    fd_set fdSet;
-    FD_ZERO(&fdSet);
-    FD_SET(m_socket, &fdSet);
-    timeval tv{2, 0};
-    if (select(0, nullptr, &fdSet, nullptr, &tv) <= 0) {
+    if (::connect(m_socket, (sockaddr*)&addr, sizeof(addr)) == SOCKET_ERROR) {
+        wchar_t buf[128];
+        swprintf_s(buf, L"[Clipper] IPC connect() FAILED: err=%d\n", WSAGetLastError());
+        OutputDebugStringW(buf);
         closesocket(m_socket);
         m_socket = INVALID_SOCKET;
         return false;
     }
 
-    // Back to blocking + recv/send timeouts
-    mode = 0;
-    ioctlsocket(m_socket, FIONBIO, &mode);
+    // recv/send timeout: 2 seconds
     int timeout = 2000;
     setsockopt(m_socket, SOL_SOCKET, SO_RCVTIMEO, (char*)&timeout, sizeof(timeout));
     setsockopt(m_socket, SOL_SOCKET, SO_SNDTIMEO, (char*)&timeout, sizeof(timeout));
 
+    OutputDebugStringW(L"[Clipper] IPC connected to backend OK\n");
     m_connected = true;
     return true;
 }

@@ -71,33 +71,30 @@ bool AppWindow::create() {
 
     if (!m_hwnd) return false;
 
-    SetLayeredWindowAttributes(m_hwnd, 0, 180, LWA_ALPHA);
+    // Create child controls now — m_hwnd was NULL during WM_CREATE
+    onCreate();
 
     bool dark = IsDarkMode();
-    BOOL useDark = FALSE; // Force light appearance for whiter base
-    DwmSetWindowAttribute(m_hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &useDark, sizeof(useDark));
 
-    int backdrop = 4; // Acrylic (lighter than Mica)
-    DwmSetWindowAttribute(m_hwnd, (DWMWINDOWATTRIBUTE)38, &backdrop, sizeof(backdrop));
-
-    // DWMWCP_ROUND = 2 (NOT 1 which is DONOTROUND!)
     int cornerPref = 2;
     DwmSetWindowAttribute(m_hwnd, (DWMWINDOWATTRIBUTE)33, &cornerPref, sizeof(cornerPref));
+
+    int backdrop = 3;
+    DwmSetWindowAttribute(m_hwnd, (DWMWINDOWATTRIBUTE)38, &backdrop, sizeof(backdrop));
 
     MARGINS margins{-1};
     DwmExtendFrameIntoClientArea(m_hwnd, &margins);
 
-    // Acrylic blur (DwmEnableBlurBehindWindow deprecated on Win8+)
     HMODULE hUser32 = GetModuleHandleW(L"user32.dll");
     if (hUser32) {
         using fn_t = BOOL(WINAPI*)(HWND, void*);
         auto fn = (fn_t)GetProcAddress(hUser32, "SetWindowCompositionAttribute");
         if (fn) {
             struct { int State, Flags, Color, AnimId; } p{};
-            p.State = 4;   // ACCENT_ENABLE_ACRYLICBLURBEHIND
-            p.Flags = 2;   // full acrylic noise texture
-            p.Color = dark ? 0x60000000 : 0x80FFFFFF;
-            struct { int A; void* D; ULONG S; } d{19, &p, sizeof(p)};
+            p.State = 4;
+            p.Flags = 0;
+            p.Color = dark ? 0x80000000 : 0xEEFFFFFF;
+            struct { DWORD A; void* D; SIZE_T S; } d{19, &p, sizeof(p)};
             fn(m_hwnd, &d);
         }
     }
@@ -166,7 +163,7 @@ LRESULT CALLBACK AppWindow::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 
 LRESULT AppWindow::handleMsg(UINT msg, WPARAM wp, LPARAM lp) {
     switch (msg) {
-        case WM_CREATE: onCreate(); return 0;
+        case WM_CREATE: if (!m_listView) onCreate(); return 0;
         case WM_SIZE:   onSize(LOWORD(lp), HIWORD(lp)); return 0;
         case WM_TIMER:
             if (wp == ANIM_TIMER_ID) {
@@ -178,12 +175,29 @@ LRESULT AppWindow::handleMsg(UINT msg, WPARAM wp, LPARAM lp) {
                         SetWindowPos(m_hwnd, nullptr, m_targetX, m_targetY, m_targetW, m_targetH, SWP_NOZORDER);
                         SetForegroundWindow(m_hwnd);
                         SetFocus(m_searchBox);
-                        // Load data asynchronously after animation
+                        // Load data asynchronously after animation (retry if backend not ready)
                         if (!m_loadingData) {
                             m_loadingData = true;
                             std::thread([this]() {
-                                IpcClient ipc;
-                                std::string response = ipc.queryHistory(0, 100);
+                                std::string response;
+                                for (int retry = 0; retry < 10; retry++) {
+                                    IpcClient ipc;
+                                    response = ipc.queryHistory(0, 100);
+                                    try {
+                                        json j = json::parse(response);
+                                        if (j["status"] == "ok") {
+                                            wchar_t buf[128];
+                                            swprintf_s(buf, L"[Clipper] async load OK, %zu items (retry=%d)\n",
+                                                       j["data"]["items"].size(), retry);
+                                            OutputDebugStringW(buf);
+                                            break;
+                                        }
+                                    } catch (...) {}
+                                    wchar_t buf[256];
+                                    swprintf_s(buf, L"[Clipper] async load retry %d: %hs\n", retry, response.c_str());
+                                    OutputDebugStringW(buf);
+                                    if (retry < 9) Sleep(800);
+                                }
                                 std::string* pResp = new std::string(std::move(response));
                                 PostMessage(m_hwnd, WM_REFRESH_DATA, 0, (LPARAM)pResp);
                             }).detach();
@@ -252,10 +266,17 @@ LRESULT AppWindow::handleMsg(UINT msg, WPARAM wp, LPARAM lp) {
 }
 
 void AppWindow::onCreate() {
+    OutputDebugStringW(L"[Clipper] onCreate() START\n");
+
     m_closeBtn = CreateWindowExW(
         0, L"BUTTON", L"X",
         WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
         0, 0, 30, 30, m_hwnd, (HMENU)(UINT_PTR)ID_CLOSE, m_hInstance, nullptr);
+    {
+        wchar_t buf[64];
+        swprintf_s(buf, L"[Clipper] closeBtn hwnd=%p err=%lu\n", m_closeBtn, m_closeBtn ? 0 : GetLastError());
+        OutputDebugStringW(buf);
+    }
     m_closeFont = CreateFontW(15, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
                               DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
                               CLEARTYPE_QUALITY, DEFAULT_PITCH, L"Segoe UI Variable");
@@ -270,14 +291,33 @@ void AppWindow::onCreate() {
                               CLEARTYPE_QUALITY, DEFAULT_PITCH, L"Segoe UI Variable");
     SendMessage(m_searchBox, WM_SETFONT, (WPARAM)hFont, TRUE);
     SendMessageW(m_searchBox, EM_SETCUEBANNER, FALSE, (LPARAM)L"Type to search clipboard history...");
+    {
+        wchar_t buf[64];
+        swprintf_s(buf, L"[Clipper] searchBox hwnd=%p err=%lu\n", m_searchBox, m_searchBox ? 0 : GetLastError());
+        OutputDebugStringW(buf);
+    }
 
     m_listView = CreateWindowExW(
         0, WC_LISTVIEWW, L"",
         WS_CHILD | WS_VISIBLE | LVS_REPORT | LVS_SINGLESEL | LVS_NOCOLUMNHEADER,
         12, 48, 0, 0, m_hwnd, (HMENU)(UINT_PTR)ID_LIST, m_hInstance, nullptr);
+    {
+        wchar_t buf[128];
+        swprintf_s(buf, L"[Clipper] listView CreateWindowExW returned hwnd=%p err=%lu\n",
+                   m_listView, m_listView ? 0 : GetLastError());
+        OutputDebugStringW(buf);
+    }
     ListView_SetExtendedListViewStyle(m_listView, LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER);
     LVCOLUMNW col{}; col.mask = LVCF_WIDTH; col.cx = 500;
     ListView_InsertColumn(m_listView, 0, &col);
+
+    {
+        wchar_t buf[128];
+        RECT r; GetClientRect(m_listView, &r);
+        swprintf_s(buf, L"[Clipper] ListView created: hwnd=%p pos=(%d,%d) size=(%d,%d)\n",
+                   m_listView, r.left, r.top, r.right, r.bottom);
+        OutputDebugStringW(buf);
+    }
 
     m_statusBar = CreateWindowExW(
         0, STATUSCLASSNAMEW, L"",
@@ -293,6 +333,12 @@ void AppWindow::onSize(int width, int height) {
     SendMessage(m_statusBar, WM_SIZE, 0, 0);
     LVCOLUMNW col{}; col.mask = LVCF_WIDTH; col.cx = width - 40;
     ListView_SetColumn(m_listView, 0, &col);
+
+    wchar_t buf[128];
+    RECT r; GetClientRect(m_listView, &r);
+    swprintf_s(buf, L"[Clipper] ListView resized: w=%d h=%d lv=(%d,%d,%d,%d) col=%d\n",
+               width, height, r.left, r.top, r.right, r.bottom, width - 40);
+    OutputDebugStringW(buf);
 }
 
 void AppWindow::refreshList(const std::string& filter) {
@@ -327,6 +373,11 @@ void AppWindow::refreshList(const std::string& filter) {
 }
 
 void AppWindow::updateListView(const std::vector<ClipItem>& items) {
+    wchar_t buf[128];
+    swprintf_s(buf, L"[Clipper] updateListView: %zu items, ListView hwnd=%p\n",
+               items.size(), m_listView);
+    OutputDebugStringW(buf);
+
     SendMessage(m_listView, WM_SETREDRAW, FALSE, 0);
     ListView_DeleteAllItems(m_listView);
     for (size_t i = 0; i < items.size(); i++) {

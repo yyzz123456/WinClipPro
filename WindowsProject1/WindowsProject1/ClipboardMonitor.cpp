@@ -37,24 +37,39 @@ void ClipboardMonitor::stop() {
 void ClipboardMonitor::handleClipboardUpdate() {
     std::string content, contentType;
 
+    OutputDebugStringW(L"[Clipper] WM_CLIPBOARDUPDATE received\n");
+
     if (IsClipboardFormatAvailable(CF_UNICODETEXT) ||
         IsClipboardFormatAvailable(CF_TEXT)) {
         content = getClipboardText();
         contentType = "text";
+        wchar_t buf[256];
+        swprintf_s(buf, L"[Clipper] text detected, len=%zu, first chars: %.50hs\n",
+                   content.size(), content.c_str());
+        OutputDebugStringW(buf);
     } else if (IsClipboardFormatAvailable(CF_HDROP)) {
         content = getClipboardFileList();
         contentType = "files";
+        OutputDebugStringW(L"[Clipper] files detected\n");
     } else if (IsClipboardFormatAvailable(CF_DIB) ||
                IsClipboardFormatAvailable(CF_DIBV5) ||
                IsClipboardFormatAvailable(CF_BITMAP)) {
         content = getClipboardImagePath();
         contentType = "image";
+        OutputDebugStringW(L"[Clipper] image detected\n");
     } else {
+        OutputDebugStringW(L"[Clipper] unknown format, skipping\n");
         return;
     }
 
-    if (content.empty() || (content == m_lastContent && contentType == m_lastContentType))
+    if (content.empty()) {
+        OutputDebugStringW(L"[Clipper] content EMPTY, skipping\n");
         return;
+    }
+    if (content == m_lastContent && contentType == m_lastContentType) {
+        OutputDebugStringW(L"[Clipper] duplicate content, skipping\n");
+        return;
+    }
 
     m_lastContent = content;
     m_lastContentType = contentType;

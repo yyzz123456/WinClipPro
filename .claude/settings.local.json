@@ -1,7 +1,7 @@
 {
   "permissions": {
     "allow": [
-"Bash(git init *)",
+      "Bash(git init *)",
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
       "Bash(git restore *)",
@@ -10,8 +10,21 @@
       "WebSearch",
       "Bash(git commit --allow-empty -m ' *)",
       "Bash(git commit *)",
-      "WebFetch(domain:www.cnblogs.com)"
+      "WebFetch(domain:www.cnblogs.com)",
+      "mcp__learn-docs__microsoft_docs_search",
+      "mcp__learn-docs__microsoft_docs_fetch",
+      "Bash(git clone *)",
+      "Bash(xargs grep -l -i \"backdrop\\\\|acrylic\\\\|mica\\\\|blur\\\\|SetWindowComposition\\\\|DwmSetWindow\\\\|DWMWA_\")",
+      "Bash(xargs grep -l -i \"DwmExtendFrame\\\\|SetWindowComposition\\\\|WS_EX_LAYERED\\\\|ACCENT\\\\|backdrop\")",
+      "Bash(xargs grep -l -i \"backdrop\\\\|acrylic\\\\|mica\\\\|DWMWA\\\\|SetWindowComposition\\\\|DwmExtend\\\\|WindowStyle\\\\|CreateWindow\")",
+      "Bash(xargs grep -l -i \"backdrop\\\\|acrylic\\\\|mica\\\\|DWMWA\\\\|SetWindowComposition\\\\|DwmExtend\\\\|CreateWindow\")",
+      "Bash(xargs grep -l -i \"acrylic\\\\|mica\\\\|backdrop\\\\|DWMWA\\\\|SetWindowComposition\\\\|DwmExtend\\\\|SourceInitialized\\\\|OnLoaded\")",
+      "Bash(xargs grep -l \"SetToolWindowStyle\\\\|DisableControlBox\\\\|WindowsInteropHelper\")",
+      "Bash(xargs grep -l -i \"acrylic\\\\|mica\\\\|backdrop\\\\|SetWindowComposition\\\\|DwmSet\\\\|DWMWA\\\\|composition\")",
+      "Bash(xargs grep -l -i \"acrylic\\\\|mica\\\\|backdrop\\\\|DWMWA_SYSTEMBACKDROP\\\\|SetWindowComposition\\\\|DwmExtend\\\\|WindowStyle\\\\|CreateWindow\")"
     ]
   },
-  "enabledMcpjsonServers": ["microsoft-learn"]
+  "enabledMcpjsonServers": [
+    "microsoft-learn"
+  ]
 }
