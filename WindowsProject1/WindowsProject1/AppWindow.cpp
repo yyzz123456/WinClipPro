@@ -93,7 +93,7 @@ bool AppWindow::create() {
             struct { int State, Flags, Color, AnimId; } p{};
             p.State = 4;
             p.Flags = 0;
-            p.Color = dark ? 0x80000000 : 0xEEFFFFFF;
+            p.Color = dark ? 0x80000000 : 0xC0FFFFFF;
             struct { DWORD A; void* D; SIZE_T S; } d{19, &p, sizeof(p)};
             fn(m_hwnd, &d);
         }
