@@ -242,7 +242,8 @@ public partial class MainWindow : Window
 
     private async void OnCopyItem(object sender, RoutedEventArgs e)
     {
-        if (((MenuItem)sender).DataContext is ClipboardItem item)
+        var item = (sender as FrameworkElement)?.DataContext as ClipboardItem;
+        if (item != null)
         {
             Clipboard.SetText(item.Content);
             StatusText.Text = "Copied!";
@@ -254,7 +255,8 @@ public partial class MainWindow : Window
 
     private async void OnTogglePin(object sender, RoutedEventArgs e)
     {
-        if (((MenuItem)sender).DataContext is ClipboardItem item)
+        var item = (sender as FrameworkElement)?.DataContext as ClipboardItem;
+        if (item != null)
         {
             bool newState = !item.Pinned;
             await _tcp.PinAsync(item.Id, newState);
@@ -265,7 +267,8 @@ public partial class MainWindow : Window
 
     private async void OnDeleteItem(object sender, RoutedEventArgs e)
     {
-        if (((MenuItem)sender).DataContext is ClipboardItem item)
+        var item = (sender as FrameworkElement)?.DataContext as ClipboardItem;
+        if (item != null)
         {
             await _tcp.DeleteAsync(item.Id);
             _items.Remove(item);
