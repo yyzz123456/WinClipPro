@@ -32,6 +32,7 @@ public partial class MainWindow : Window
     private double _hiddenTop;
     private bool _isSelecting;
     private bool _isPasting;
+    private bool _selfCopy;
 
     public MainWindow()
     {
@@ -92,6 +93,9 @@ public partial class MainWindow : Window
     {
         _clipboardCallback = (content, _, timestamp, hash) =>
         {
+            // Skip if we ourselves set the clipboard
+            if (_selfCopy) return;
+
             RunOnUi(async () =>
             {
                 try
@@ -232,6 +236,7 @@ public partial class MainWindow : Window
         _isSelecting = true;
         try
         {
+            _selfCopy = true;
             Clipboard.SetText(item.Content);
             StatusText.Text = "Copied!";
             await HideWithAnimation();
@@ -248,6 +253,7 @@ public partial class MainWindow : Window
         {
             ClipboardList.SelectedIndex = -1;
             _isSelecting = false;
+            _selfCopy = false;
         }
     }
 
@@ -257,12 +263,14 @@ public partial class MainWindow : Window
         if (item != null && !_isPasting)
         {
             _isPasting = true;
+            _selfCopy = true;
             Clipboard.SetText(item.Content);
             StatusText.Text = "Copied!";
             await HideWithAnimation();
             await Task.Delay(80);
             System.Windows.Forms.SendKeys.SendWait("^v");
             _isPasting = false;
+            _selfCopy = false;
         }
     }
 
