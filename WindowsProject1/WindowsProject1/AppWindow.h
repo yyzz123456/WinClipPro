@@ -1,10 +1,15 @@
 #pragma once
 #include <windows.h>
 #include <commctrl.h>
+#include <d2d1.h>
+#include <dwrite.h>
 #include <vector>
 #include <string>
 #include "IpcClient.h"
 #include "nlohmann/json.hpp"
+
+#pragma comment(lib, "d2d1.lib")
+#pragma comment(lib, "dwrite.lib")
 
 struct ClipItem {
     int id;
@@ -40,14 +45,19 @@ private:
     void pinItem(int index);
     void deleteItem(int index);
 
+    void initD2D();
+    void destroyD2D();
+    void renderList();
     void updateListView(const std::vector<ClipItem>& items);
+    int hitTestItem(int yScreen);
+    void updateScrollRange();
+
     static std::string formatTimestamp(long long ts);
     static std::wstring toWide(const std::string& s);
     static std::string toNarrow(const std::wstring& ws);
 
     HWND m_hwnd = nullptr;
     HWND m_searchBox = nullptr;
-    HWND m_listView = nullptr;
     HWND m_statusBar = nullptr;
     HWND m_closeBtn = nullptr;
     HFONT m_closeFont = nullptr;
@@ -65,10 +75,21 @@ private:
     IpcClient m_ipc;
     std::vector<ClipItem> m_items;
 
+    // D2D rendering for the list (replaces GDI ListView)
+    ID2D1Factory* m_d2dFactory = nullptr;
+    ID2D1HwndRenderTarget* m_renderTarget = nullptr;
+    IDWriteFactory* m_writeFactory = nullptr;
+    IDWriteTextFormat* m_textFormat = nullptr;
+    ID2D1SolidColorBrush* m_brush = nullptr;
+    int m_scrollOffset = 0;
+    int m_itemHeight = 26;
+    int m_selectedIndex = -1;
+    RECT m_listRect = {};
+    bool m_d2dInit = false;
+
     static AppWindow* s_instance;
 
     static constexpr int ID_SEARCH = 1001;
-    static constexpr int ID_LIST = 1002;
     static constexpr int ID_CLOSE = 1003;
     static constexpr int IDM_COPY = 2001;
     static constexpr int IDM_PIN = 2002;

@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="XAML">
+      <UniqueIdentifier>{A1B2C3D4-1111-2222-3333-ABCDEF123456}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Code Behind">
+      <UniqueIdentifier>{A1B2C3D4-2222-3333-4444-ABCDEF123456}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Win32 Subsystem">
+      <UniqueIdentifier>{A1B2C3D4-3333-4444-5555-ABCDEF123456}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Data Model">
+      <UniqueIdentifier>{A1B2C3D4-4444-5555-6666-ABCDEF123456}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="IDL">
+      <UniqueIdentifier>{A1B2C3D4-5555-6666-7777-ABCDEF123456}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Headers">
+      <UniqueIdentifier>{A1B2C3D4-6666-7777-8888-ABCDEF123456}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Vendor">
+      <UniqueIdentifier>{A1B2C3D4-7777-8888-9999-ABCDEF123456}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <Page Include="App.xaml">
+      <Filter>XAML</Filter>
+    </Page>
+    <Page Include="MainWindow.xaml">
+      <Filter>XAML</Filter>
+    </Page>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="App.xaml.cpp">
+      <Filter>Code Behind</Filter>
+    </ClCompile>
+    <ClCompile Include="MainWindow.xaml.cpp">
+      <Filter>Code Behind</Filter>
+    </ClCompile>
+    <ClCompile Include="ClipboardItem.cpp">
+      <Filter>Data Model</Filter>
+    </ClCompile>
+    <ClCompile Include="ClipboardMonitor.cpp">
+      <Filter>Win32 Subsystem</Filter>
+    </ClCompile>
+    <ClCompile Include="IpcClient.cpp">
+      <Filter>Win32 Subsystem</Filter>
+    </ClCompile>
+    <ClCompile Include="HotkeyManager.cpp">
+      <Filter>Win32 Subsystem</Filter>
+    </ClCompile>
+    <ClCompile Include="pch.cpp">
+      <Filter>Headers</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="pch.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="JsonHelper.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="vendor\nlohmann\json.hpp">
+      <Filter>Vendor</Filter>
+    </ClInclude>
+    <ClInclude Include="App.xaml.h">
+      <Filter>Code Behind</Filter>
+    </ClInclude>
+    <ClInclude Include="MainWindow.xaml.h">
+      <Filter>Code Behind</Filter>
+    </ClInclude>
+    <ClInclude Include="ClipboardItem.h">
+      <Filter>Data Model</Filter>
+    </ClInclude>
+    <ClInclude Include="ClipboardMonitor.h">
+      <Filter>Win32 Subsystem</Filter>
+    </ClInclude>
+    <ClInclude Include="IpcClient.h">
+      <Filter>Win32 Subsystem</Filter>
+    </ClInclude>
+    <ClInclude Include="HotkeyManager.h">
+      <Filter>Win32 Subsystem</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Midl Include="App.idl">
+      <Filter>IDL</Filter>
+    </Midl>
+    <Midl Include="MainWindow.idl">
+      <Filter>IDL</Filter>
+    </Midl>
+    <Midl Include="ClipboardItem.idl">
+      <Filter>IDL</Filter>
+    </Midl>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
+  </ItemGroup>
+</Project>

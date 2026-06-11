@@ -26,11 +26,12 @@ AppWindow::AppWindow(HINSTANCE hInstance) : m_hInstance(hInstance) {
     s_instance = this;
     INITCOMMONCONTROLSEX icex{};
     icex.dwSize = sizeof(icex);
-    icex.dwICC = ICC_LISTVIEW_CLASSES | ICC_STANDARD_CLASSES;
+    icex.dwICC = ICC_STANDARD_CLASSES;
     InitCommonControlsEx(&icex);
 }
 
 AppWindow::~AppWindow() {
+    destroyD2D();
     if (m_closeFont) DeleteObject(m_closeFont);
     s_instance = nullptr;
 }
@@ -40,7 +41,7 @@ bool AppWindow::create() {
 
     WNDCLASSEXW wc{};
     wc.cbSize = sizeof(wc);
-    wc.style = CS_HREDRAW | CS_VREDRAW | 0x00020000; // CS_DROPSHADOW
+    wc.style = CS_HREDRAW | CS_VREDRAW | 0x00020000;
     wc.lpfnWndProc = WndProc;
     wc.hInstance = m_hInstance;
     wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
@@ -71,7 +72,7 @@ bool AppWindow::create() {
 
     if (!m_hwnd) return false;
 
-    // Create child controls now — m_hwnd was NULL during WM_CREATE
+    // Child controls NOW — m_hwnd was NULL during WM_CREATE inside CreateWindowExW
     onCreate();
 
     bool dark = IsDarkMode();
@@ -109,7 +110,7 @@ void AppWindow::show() {
     GetClientRect(m_hwnd, &rc);
     onSize(rc.right, rc.bottom);
 
-    m_loadingData = false;  // allow fresh data load
+    m_loadingData = false;
     SendMessageW(m_statusBar, SB_SETTEXT, 0, (LPARAM)L" Loading...");
 
     RECT workArea;
@@ -119,11 +120,10 @@ void AppWindow::show() {
                  SWP_NOZORDER | SWP_NOACTIVATE);
     ShowWindow(m_hwnd, SW_SHOWNOACTIVATE);
 
-    // Start smooth slide-up animation (10ms timer = 100fps)
     if (m_animTimer) { KillTimer(m_hwnd, ANIM_TIMER_ID); }
 
     m_animStep = 0;
-    m_animTotalSteps = 15;   // 150ms total
+    m_animTotalSteps = 15;
     m_animStartY = workArea.bottom;
     m_animEndY = m_targetY;
     m_animShowing = true;
@@ -139,11 +139,10 @@ void AppWindow::hide() {
     RECT workArea;
     SystemParametersInfo(SPI_GETWORKAREA, 0, &workArea, 0);
 
-    // Start smooth slide-down animation
     if (m_animTimer) { KillTimer(m_hwnd, ANIM_TIMER_ID); }
 
     m_animStep = 0;
-    m_animTotalSteps = 10;   // 100ms total
+    m_animTotalSteps = 10;
     m_animStartY = winRect.top;
     m_animEndY = workArea.bottom;
     m_animShowing = false;
@@ -163,7 +162,7 @@ LRESULT CALLBACK AppWindow::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 
 LRESULT AppWindow::handleMsg(UINT msg, WPARAM wp, LPARAM lp) {
     switch (msg) {
-        case WM_CREATE: if (!m_listView) onCreate(); return 0;
+        case WM_CREATE: if (!m_searchBox) onCreate(); return 0;
         case WM_SIZE:   onSize(LOWORD(lp), HIWORD(lp)); return 0;
         case WM_TIMER:
             if (wp == ANIM_TIMER_ID) {
@@ -175,7 +174,6 @@ LRESULT AppWindow::handleMsg(UINT msg, WPARAM wp, LPARAM lp) {
                         SetWindowPos(m_hwnd, nullptr, m_targetX, m_targetY, m_targetW, m_targetH, SWP_NOZORDER);
                         SetForegroundWindow(m_hwnd);
                         SetFocus(m_searchBox);
-                        // Load data asynchronously after animation (retry if backend not ready)
                         if (!m_loadingData) {
                             m_loadingData = true;
                             std::thread([this]() {
@@ -185,17 +183,8 @@ LRESULT AppWindow::handleMsg(UINT msg, WPARAM wp, LPARAM lp) {
                                     response = ipc.queryHistory(0, 100);
                                     try {
                                         json j = json::parse(response);
-                                        if (j["status"] == "ok") {
-                                            wchar_t buf[128];
-                                            swprintf_s(buf, L"[Clipper] async load OK, %zu items (retry=%d)\n",
-                                                       j["data"]["items"].size(), retry);
-                                            OutputDebugStringW(buf);
-                                            break;
-                                        }
+                                        if (j["status"] == "ok") break;
                                     } catch (...) {}
-                                    wchar_t buf[256];
-                                    swprintf_s(buf, L"[Clipper] async load retry %d: %hs\n", retry, response.c_str());
-                                    OutputDebugStringW(buf);
                                     if (retry < 9) Sleep(800);
                                 }
                                 std::string* pResp = new std::string(std::move(response));
@@ -221,6 +210,12 @@ LRESULT AppWindow::handleMsg(UINT msg, WPARAM wp, LPARAM lp) {
             }
             return 0;
         }
+        case WM_PAINT:
+            renderList();
+            ValidateRect(m_hwnd, nullptr);
+            return 0;
+        case WM_ERASEBKGND:
+            return 1; // we handle background in renderList
         case WM_NCHITTEST:
             {
                 LRESULT hit = DefWindowProc(m_hwnd, msg, wp, lp);
@@ -235,29 +230,56 @@ LRESULT AppWindow::handleMsg(UINT msg, WPARAM wp, LPARAM lp) {
             if (HIWORD(wp) == BN_CLICKED && LOWORD(wp) == ID_CLOSE) { hide(); return 0; }
             if (HIWORD(wp) == EN_CHANGE && LOWORD(wp) == ID_SEARCH) onSearch();
             return 0;
-        case WM_NOTIFY:
-            if (((NMHDR*)lp)->code == NM_RCLICK && ((NMHDR*)lp)->idFrom == ID_LIST) {
-                POINT pt; GetCursorPos(&pt); onContextMenu(pt);
-            }
-            if (((NMHDR*)lp)->code == NM_DBLCLK && ((NMHDR*)lp)->idFrom == ID_LIST) {
-                NMITEMACTIVATE* nmia = (NMITEMACTIVATE*)lp;
-                if (nmia->iItem >= 0 && nmia->iItem < (int)m_items.size())
-                    copyToClipboard(nmia->iItem);
+        case WM_LBUTTONDOWN: {
+            POINT pt = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
+            int idx = hitTestItem(pt.y);
+            if (idx >= 0) {
+                m_selectedIndex = idx;
+                InvalidateRect(m_hwnd, &m_listRect, FALSE);
             }
             return 0;
-        case WM_CONTEXTMENU:
-            if ((HWND)wp == m_listView) {
-                POINT pt = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)}; onContextMenu(pt);
-            }
+        }
+        case WM_LBUTTONDBLCLK: {
+            POINT pt = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
+            int idx = hitTestItem(pt.y);
+            if (idx >= 0 && idx < (int)m_items.size())
+                copyToClipboard(idx);
             return 0;
+        }
+        case WM_RBUTTONUP: {
+            POINT pt = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
+            int idx = hitTestItem(pt.y);
+            if (idx >= 0) {
+                m_selectedIndex = idx;
+                InvalidateRect(m_hwnd, &m_listRect, FALSE);
+            }
+            POINT screenPt;
+            GetCursorPos(&screenPt);
+            onContextMenu(screenPt);
+            return 0;
+        }
+        case WM_MOUSEWHEEL: {
+            int delta = GET_WHEEL_DELTA_WPARAM(wp) / WHEEL_DELTA;
+            m_scrollOffset -= delta;
+            if (m_scrollOffset < 0) m_scrollOffset = 0;
+            updateScrollRange();
+            InvalidateRect(m_hwnd, &m_listRect, FALSE);
+            return 0;
+        }
         case WM_ACTIVATE:
             if (LOWORD(wp) == WA_INACTIVE && !m_menuActive) hide();
             return 0;
         case WM_KEYDOWN:
             if (wp == VK_ESCAPE) hide();
             if (wp == VK_RETURN) {
-                int idx = ListView_GetSelectionMark(m_listView);
-                if (idx >= 0 && idx < (int)m_items.size()) copyToClipboard(idx);
+                if (m_selectedIndex >= 0 && m_selectedIndex < (int)m_items.size())
+                    copyToClipboard(m_selectedIndex);
+            }
+            if (wp == VK_UP) {
+                if (m_selectedIndex > 0) { m_selectedIndex--; InvalidateRect(m_hwnd, &m_listRect, FALSE); }
+            }
+            if (wp == VK_DOWN) {
+                if (m_selectedIndex < (int)m_items.size() - 1) { m_selectedIndex++; InvalidateRect(m_hwnd, &m_listRect, FALSE); }
             }
             return 0;
         case WM_DESTROY: PostQuitMessage(0); return 0;
@@ -266,17 +288,10 @@ LRESULT AppWindow::handleMsg(UINT msg, WPARAM wp, LPARAM lp) {
 }
 
 void AppWindow::onCreate() {
-    OutputDebugStringW(L"[Clipper] onCreate() START\n");
-
     m_closeBtn = CreateWindowExW(
         0, L"BUTTON", L"X",
         WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
         0, 0, 30, 30, m_hwnd, (HMENU)(UINT_PTR)ID_CLOSE, m_hInstance, nullptr);
-    {
-        wchar_t buf[64];
-        swprintf_s(buf, L"[Clipper] closeBtn hwnd=%p err=%lu\n", m_closeBtn, m_closeBtn ? 0 : GetLastError());
-        OutputDebugStringW(buf);
-    }
     m_closeFont = CreateFontW(15, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
                               DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
                               CLEARTYPE_QUALITY, DEFAULT_PITCH, L"Segoe UI Variable");
@@ -291,54 +306,26 @@ void AppWindow::onCreate() {
                               CLEARTYPE_QUALITY, DEFAULT_PITCH, L"Segoe UI Variable");
     SendMessage(m_searchBox, WM_SETFONT, (WPARAM)hFont, TRUE);
     SendMessageW(m_searchBox, EM_SETCUEBANNER, FALSE, (LPARAM)L"Type to search clipboard history...");
-    {
-        wchar_t buf[64];
-        swprintf_s(buf, L"[Clipper] searchBox hwnd=%p err=%lu\n", m_searchBox, m_searchBox ? 0 : GetLastError());
-        OutputDebugStringW(buf);
-    }
-
-    m_listView = CreateWindowExW(
-        0, WC_LISTVIEWW, L"",
-        WS_CHILD | WS_VISIBLE | LVS_REPORT | LVS_SINGLESEL | LVS_NOCOLUMNHEADER,
-        12, 48, 0, 0, m_hwnd, (HMENU)(UINT_PTR)ID_LIST, m_hInstance, nullptr);
-    {
-        wchar_t buf[128];
-        swprintf_s(buf, L"[Clipper] listView CreateWindowExW returned hwnd=%p err=%lu\n",
-                   m_listView, m_listView ? 0 : GetLastError());
-        OutputDebugStringW(buf);
-    }
-    ListView_SetExtendedListViewStyle(m_listView, LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER);
-    LVCOLUMNW col{}; col.mask = LVCF_WIDTH; col.cx = 500;
-    ListView_InsertColumn(m_listView, 0, &col);
-
-    {
-        wchar_t buf[128];
-        RECT r; GetClientRect(m_listView, &r);
-        swprintf_s(buf, L"[Clipper] ListView created: hwnd=%p pos=(%d,%d) size=(%d,%d)\n",
-                   m_listView, r.left, r.top, r.right, r.bottom);
-        OutputDebugStringW(buf);
-    }
 
     m_statusBar = CreateWindowExW(
         0, STATUSCLASSNAMEW, L"",
         WS_CHILD | WS_VISIBLE | SBARS_SIZEGRIP,
         0, 0, 0, 0, m_hwnd, nullptr, m_hInstance, nullptr);
+
+    initD2D();
 }
 
 void AppWindow::onSize(int width, int height) {
     SetWindowPos(m_closeBtn, nullptr, width - 50, 8, 30, 30, SWP_NOZORDER);
     SetWindowPos(m_searchBox, nullptr, 0, 0, width - 66, 28, SWP_NOMOVE | SWP_NOZORDER);
-    SetWindowPos(m_listView, nullptr, 0, 0, width - 24, height - 90, SWP_NOMOVE | SWP_NOZORDER);
-    SendMessage(m_listView, WM_SIZE, 0, 0);
     SendMessage(m_statusBar, WM_SIZE, 0, 0);
-    LVCOLUMNW col{}; col.mask = LVCF_WIDTH; col.cx = width - 40;
-    ListView_SetColumn(m_listView, 0, &col);
 
-    wchar_t buf[128];
-    RECT r; GetClientRect(m_listView, &r);
-    swprintf_s(buf, L"[Clipper] ListView resized: w=%d h=%d lv=(%d,%d,%d,%d) col=%d\n",
-               width, height, r.left, r.top, r.right, r.bottom, width - 40);
-    OutputDebugStringW(buf);
+    m_listRect = {12, 48, width - 12, height - 24};
+    updateScrollRange();
+
+    if (m_renderTarget) {
+        m_renderTarget->Resize(D2D1::SizeU(width, height));
+    }
 }
 
 void AppWindow::refreshList(const std::string& filter) {
@@ -373,28 +360,11 @@ void AppWindow::refreshList(const std::string& filter) {
 }
 
 void AppWindow::updateListView(const std::vector<ClipItem>& items) {
-    wchar_t buf[128];
-    swprintf_s(buf, L"[Clipper] updateListView: %zu items, ListView hwnd=%p\n",
-               items.size(), m_listView);
-    OutputDebugStringW(buf);
-
-    SendMessage(m_listView, WM_SETREDRAW, FALSE, 0);
-    ListView_DeleteAllItems(m_listView);
-    for (size_t i = 0; i < items.size(); i++) {
-        LVITEMW lvi{};
-        lvi.mask = LVIF_TEXT | LVIF_PARAM;
-        lvi.iItem = (int)i;
-        lvi.lParam = (LPARAM)i;
-        std::string display = items[i].content;
-        size_t nl = display.find('\n');
-        if (nl != std::string::npos) display = display.substr(0, nl);
-        if (display.length() > 80) display = display.substr(0, 77) + "...";
-        std::wstring wDisplay = toWide(display);
-        lvi.pszText = (LPWSTR)wDisplay.c_str();
-        ListView_InsertItem(m_listView, &lvi);
-    }
-    SendMessage(m_listView, WM_SETREDRAW, TRUE, 0);
-    InvalidateRect(m_listView, nullptr, TRUE);
+    (void)items;
+    m_selectedIndex = -1;
+    m_scrollOffset = 0;
+    updateScrollRange();
+    InvalidateRect(m_hwnd, nullptr, FALSE);
 }
 
 void AppWindow::applyRefreshResponse(const std::string& jsonStr) {
@@ -432,7 +402,7 @@ void AppWindow::onSearch() {
 }
 
 void AppWindow::onContextMenu(POINT pt) {
-    int idx = ListView_GetSelectionMark(m_listView);
+    int idx = m_selectedIndex;
     if (idx < 0 || idx >= (int)m_items.size()) return;
     HMENU hMenu = CreatePopupMenu();
     AppendMenuW(hMenu, MF_STRING, IDM_COPY, L"Copy to clipboard");
@@ -504,6 +474,110 @@ void AppWindow::deleteItem(int index) {
     wchar_t status[64];
     swprintf_s(status, L" %zu items  |  Alt+, to toggle", m_items.size());
     SendMessageW(m_statusBar, SB_SETTEXT, 0, (LPARAM)status);
+}
+
+// ── D2D rendering for the list ──
+
+void AppWindow::initD2D() {
+    D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, &m_d2dFactory);
+    if (!m_d2dFactory) return;
+
+    DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory),
+                        reinterpret_cast<IUnknown**>(&m_writeFactory));
+    if (m_writeFactory) {
+        m_writeFactory->CreateTextFormat(
+            L"Segoe UI Variable", nullptr,
+            DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL,
+            13.0f, L"", &m_textFormat);
+    }
+    m_d2dInit = true;
+}
+
+void AppWindow::destroyD2D() {
+    if (m_brush) { m_brush->Release(); m_brush = nullptr; }
+    if (m_renderTarget) { m_renderTarget->Release(); m_renderTarget = nullptr; }
+    if (m_textFormat) { m_textFormat->Release(); m_textFormat = nullptr; }
+    if (m_writeFactory) { m_writeFactory->Release(); m_writeFactory = nullptr; }
+    if (m_d2dFactory) { m_d2dFactory->Release(); m_d2dFactory = nullptr; }
+    m_d2dInit = false;
+}
+
+void AppWindow::renderList() {
+    if (!m_d2dInit || m_items.empty()) return;
+
+    RECT rc;
+    GetClientRect(m_hwnd, &rc);
+    int w = rc.right - rc.left;
+    int h = rc.bottom - rc.top;
+    if (w <= 0 || h <= 0) return;
+
+    // Create render target on first call (need window dimensions)
+    if (!m_renderTarget) {
+        D2D1_SIZE_U size = D2D1::SizeU(w, h);
+        HRESULT hr = m_d2dFactory->CreateHwndRenderTarget(
+            D2D1::RenderTargetProperties(D2D1_RENDER_TARGET_TYPE_DEFAULT,
+                D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED)),
+            D2D1::HwndRenderTargetProperties(m_hwnd, size),
+            &m_renderTarget);
+        if (FAILED(hr) || !m_renderTarget) return;
+        m_renderTarget->SetTextAntialiasMode(D2D1_TEXT_ANTIALIAS_MODE_CLEARTYPE);
+    }
+
+    m_renderTarget->BeginDraw();
+    m_renderTarget->Clear(D2D1::ColorF(0, 0, 0, 0));
+
+    if (!m_brush) {
+        m_renderTarget->CreateSolidColorBrush(D2D1::ColorF(1, 1, 1), &m_brush);
+    }
+
+    float lrW = (float)(m_listRect.right - m_listRect.left);
+    int visibleCount = (m_listRect.bottom - m_listRect.top) / m_itemHeight;
+    for (int i = 0; i < visibleCount && (i + m_scrollOffset) < (int)m_items.size(); i++) {
+        int idx = i + m_scrollOffset;
+        float y = (float)(m_listRect.top + i * m_itemHeight);
+
+        if (idx == m_selectedIndex) {
+            m_brush->SetColor(D2D1::ColorF(0.25f, 0.45f, 0.70f, 0.6f));
+            m_renderTarget->FillRectangle(
+                D2D1::RectF((float)m_listRect.left, y, (float)m_listRect.right, y + (float)m_itemHeight),
+                m_brush);
+        }
+
+        std::string display = m_items[idx].content;
+        size_t nl = display.find('\n');
+        if (nl != std::string::npos) display = display.substr(0, nl);
+        if (display.length() > 80) display = display.substr(0, 77) + "...";
+        std::wstring wText = toWide(display);
+
+        m_brush->SetColor(D2D1::ColorF(0.9f, 0.9f, 0.85f));
+        m_renderTarget->DrawText(
+            wText.c_str(), (UINT32)wText.size(), m_textFormat,
+            D2D1::RectF((float)(m_listRect.left + 8), y + 4,
+                        (float)(m_listRect.right - 8), y + (float)m_itemHeight),
+            m_brush, D2D1_DRAW_TEXT_OPTIONS_CLIP);
+    }
+
+    HRESULT hr = m_renderTarget->EndDraw();
+    if (hr == D2DERR_RECREATE_TARGET) {
+        if (m_brush) { m_brush->Release(); m_brush = nullptr; }
+        if (m_renderTarget) { m_renderTarget->Release(); m_renderTarget = nullptr; }
+    }
+}
+
+int AppWindow::hitTestItem(int yScreen) {
+    if (yScreen < m_listRect.top || yScreen >= m_listRect.bottom)
+        return -1;
+    int idx = (yScreen - m_listRect.top) / m_itemHeight + m_scrollOffset;
+    if (idx >= (int)m_items.size()) return -1;
+    return idx;
+}
+
+void AppWindow::updateScrollRange() {
+    int visibleCount = (m_listRect.bottom - m_listRect.top) / m_itemHeight;
+    int maxScroll = (int)m_items.size() - visibleCount;
+    if (maxScroll < 0) maxScroll = 0;
+    if (m_scrollOffset > maxScroll) m_scrollOffset = maxScroll;
+    if (m_scrollOffset < 0) m_scrollOffset = 0;
 }
 
 std::wstring AppWindow::toWide(const std::string& s) {

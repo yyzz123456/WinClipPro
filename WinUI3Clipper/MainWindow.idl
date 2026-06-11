@@ -1,0 +1,15 @@
+import "ClipboardItem.idl";
+
+namespace WinUI3Clipper
+{
+    [default_interface]
+    runtimeclass MainWindow : Microsoft.UI.Xaml.Window
+    {
+        MainWindow();
+        void Show();
+        void Hide();
+        void LoadData();
+        Windows.Foundation.Collections.IObservableVector<ClipboardItem> Items{ get; };
+        Int32 SelectedIndex;
+    }
+}
