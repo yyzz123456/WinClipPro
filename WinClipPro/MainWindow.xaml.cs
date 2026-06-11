@@ -33,6 +33,7 @@ public partial class MainWindow : Window
     private bool _isSelecting;
     private bool _isPasting;
     private bool _selfCopy;
+    private IntPtr _lastForegroundWindow;
 
     public MainWindow()
     {
@@ -77,6 +78,20 @@ public partial class MainWindow : Window
 
     [DllImport("user32.dll")]
     private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+
+    private const byte VK_CONTROL = 0x11;
+    private const byte VK_V = 0x56;
+    private const uint KEYEVENTF_KEYUP = 0x0002;
 
 
     private IntPtr WndProcHook(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
@@ -132,6 +147,8 @@ public partial class MainWindow : Window
     {
         if (_isAnimating) return;
         _isAnimating = true;
+
+        _lastForegroundWindow = GetForegroundWindow();
 
         _targetTop = CalculateTargetTop();
         _hiddenTop = _targetTop + Height + 20;
@@ -243,12 +260,13 @@ public partial class MainWindow : Window
             {
                 _isPasting = true;
                 // Quick opacity switch — near-invisible
-                Hide();
-                await Task.Delay(10);
-                System.Windows.Forms.SendKeys.SendWait("^v");
-                await Task.Delay(5);
-                Show();
-                Activate();
+                // Switch focus to target, paste, switch back — all in one go
+                SetForegroundWindow(_lastForegroundWindow);
+                keybd_event(VK_CONTROL, 0, 0, UIntPtr.Zero);
+                keybd_event(VK_V, 0, 0, UIntPtr.Zero);
+                keybd_event(VK_V, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+                keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+                SetForegroundWindow(_hwnd);
                 _isPasting = false;
             }
         }
