@@ -16,7 +16,6 @@ public partial class App : Application
         _mutex = new Mutex(true, MutexName, out bool createdNew);
         if (!createdNew)
         {
-            // Signal existing instance to show window
             try
             {
                 using var client = new NamedPipeClientStream(".", "WinClipPro_ShowWindow", PipeDirection.Out);
@@ -24,8 +23,8 @@ public partial class App : Application
                 client.WriteByte(1);
             }
             catch { }
-            Shutdown();
-            return;
+            // Use Environment.Exit to avoid any WPF window/tray creation
+            Environment.Exit(0);
         }
 
         _javaManager = new JavaProcessManager();
