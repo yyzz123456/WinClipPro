@@ -10,6 +10,7 @@ public partial class SettingsWindow : Window
     public string HotkeyText { get; private set; } = "Alt + ,";
     public int RetentionDays { get; private set; } = 7;
     public bool AutoStart { get; private set; }
+    public int MaxItems { get; private set; } = 500;
 
     private bool _isClosing;
 
@@ -29,9 +30,13 @@ public partial class SettingsWindow : Window
             14 => 1, 30 => 2, 90 => 3, -1 => 4, _ => 0
         };
         AutoStartSwitch.IsOn = s.AutoStart;
+        MaxItemsBox.SelectedIndex = s.MaxItems switch
+        {
+            100 => 0, 200 => 1, 1000 => 3, 5000 => 4, -1 => 5, _ => 2 // default 500
+        };
     }
 
-    private void OnDone(object sender, RoutedEventArgs e)
+    private void Done()
     {
         _isClosing = true;
         RetentionDays = RetentionBox.SelectedIndex switch
@@ -39,9 +44,15 @@ public partial class SettingsWindow : Window
             0 => 7, 1 => 14, 2 => 30, 3 => 90, 4 => -1, _ => 7
         };
         AutoStart = AutoStartSwitch.IsOn;
-        AppSettings.Save(RetentionDays, AutoStart);
+        MaxItems = MaxItemsBox.SelectedIndex switch
+        {
+            0 => 100, 1 => 200, 2 => 500, 3 => 1000, 4 => 5000, 5 => -1, _ => 500
+        };
+        AppSettings.Save(RetentionDays, AutoStart, MaxItems);
         Close();
     }
+
+    private void OnDone(object sender, RoutedEventArgs e) => Done();
 
     private void OnChangeHotkey(object sender, RoutedEventArgs e)
     {
@@ -50,16 +61,6 @@ public partial class SettingsWindow : Window
 
     private void OnDeactivated(object sender, EventArgs e)
     {
-        if (!_isClosing)
-        {
-            _isClosing = true;
-            RetentionDays = RetentionBox.SelectedIndex switch
-            {
-                0 => 7, 1 => 14, 2 => 30, 3 => 90, 4 => -1, _ => 7
-            };
-            AutoStart = AutoStartSwitch.IsOn;
-            AppSettings.Save(RetentionDays, AutoStart);
-            Close();
-        }
+        if (!_isClosing) Done();
     }
 }

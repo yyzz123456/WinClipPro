@@ -7,6 +7,7 @@ public class AppSettings
 {
     public int RetentionDays { get; set; } = 7;
     public bool AutoStart { get; set; }
+    public int MaxItems { get; set; } = 500;
 
     private static string FilePath =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -26,17 +27,16 @@ public class AppSettings
         return new AppSettings();
     }
 
-    public static void Save(int retentionDays, bool autoStart)
+    public static void Save(int retentionDays, bool autoStart, int maxItems)
     {
         try
         {
             var dir = Path.GetDirectoryName(FilePath);
             if (dir != null) Directory.CreateDirectory(dir);
-            var settings = new AppSettings { RetentionDays = retentionDays, AutoStart = autoStart };
+            var settings = new AppSettings { RetentionDays = retentionDays, AutoStart = autoStart, MaxItems = maxItems };
             var json = JsonSerializer.Serialize(settings);
             File.WriteAllText(FilePath, json);
 
-            // Auto-start registry
             SetAutoStart(autoStart);
         }
         catch { }

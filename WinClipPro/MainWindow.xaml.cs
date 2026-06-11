@@ -100,7 +100,6 @@ public partial class MainWindow : Window
     {
         _clipboardCallback = (content, _, timestamp, hash) =>
         {
-            // Skip if we ourselves set the clipboard
             if (_selfCopy) return;
 
             RunOnUi(async () =>
@@ -112,6 +111,7 @@ public partial class MainWindow : Window
                     {
                         StatusText.Text = "Clipboard saved";
                         if (IsVisible) await LoadItemsAsync();
+                        await PruneIfNeeded();
                     }
                 }
                 catch { }
@@ -341,6 +341,21 @@ public partial class MainWindow : Window
     public void ShowAndFocus() => _ = ShowWithAnimation();
 
     private void RunOnUi(Func<Task> action) => Dispatcher.BeginInvoke(() => _ = action());
+
+    private async Task PruneIfNeeded()
+    {
+        try
+        {
+            var settings = AppSettings.Load();
+            if (settings.MaxItems <= 0) return;
+
+            var items = await _tcp.QueryAsync(0, settings.MaxItems + 100);
+            var excess = items.Skip(settings.MaxItems).ToList();
+            foreach (var item in excess)
+                await _tcp.DeleteAsync(item.Id);
+        }
+        catch { }
+    }
 
     private void CreateTrayIcon()
     {

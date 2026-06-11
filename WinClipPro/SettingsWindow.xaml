@@ -6,7 +6,7 @@
         AllowsTransparency="True"
         Background="Transparent"
         Title="WinClip Pro Settings"
-        Height="320" Width="360"
+        Height="380" Width="360"
         ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner"
         Loaded="OnLoaded"
@@ -52,6 +52,23 @@
                             <ComboBoxItem>30 days</ComboBoxItem>
                             <ComboBoxItem>90 days</ComboBoxItem>
                             <ComboBoxItem>Forever</ComboBoxItem>
+                        </ComboBox>
+                    </Border>
+
+                    <!-- Max items -->
+                    <TextBlock Text="Max items" FontSize="12" FontWeight="Medium"
+                               Foreground="#80000000" Margin="0,0,0,4" />
+                    <Border Background="#18000000" CornerRadius="4" Padding="8,6" Margin="0,0,0,12">
+                        <ComboBox x:Name="MaxItemsBox"
+                                  SelectedIndex="2"
+                                  Background="Transparent" BorderThickness="0"
+                                  Foreground="#CC000000" FontSize="13">
+                            <ComboBoxItem>100</ComboBoxItem>
+                            <ComboBoxItem>200</ComboBoxItem>
+                            <ComboBoxItem>500</ComboBoxItem>
+                            <ComboBoxItem>1000</ComboBoxItem>
+                            <ComboBoxItem>5000</ComboBoxItem>
+                            <ComboBoxItem>Unlimited</ComboBoxItem>
                         </ComboBox>
                     </Border>
 
