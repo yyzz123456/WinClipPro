@@ -125,7 +125,7 @@
                                             Margin="0,2" Padding="8,6" Cursor="Hand">
                                         <Border.ContextMenu>
                                             <ContextMenu>
-                                                <MenuItem Header="Copy" Click="OnCopyItem"
+                                                <MenuItem Header="Copy &amp; Paste" Click="OnCopyItem"
                                                           DataContext="{Binding}" />
                                                 <MenuItem Header="Pin / Unpin" Click="OnTogglePin"
                                                           DataContext="{Binding}" />
@@ -135,6 +135,10 @@
                                             </ContextMenu>
                                         </Border.ContextMenu>
                                         <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
                                             <Grid.RowDefinitions>
                                                 <RowDefinition Height="Auto" />
                                                 <RowDefinition Height="Auto" />
@@ -152,6 +156,18 @@
                                                            Visibility="{Binding IsPinned,
                                                                Converter={StaticResource BoolToVisibility}}" />
                                             </StackPanel>
+                                            <!-- Delete button -->
+                                            <Button Grid.Column="1" Grid.RowSpan="2"
+                                                    Content="&#xE106;" FontFamily="Segoe MDL2 Assets"
+                                                    Width="24" Height="24"
+                                                    Background="Transparent"
+                                                    Foreground="#60FFFFFF"
+                                                    BorderThickness="0"
+                                                    Cursor="Hand"
+                                                    VerticalAlignment="Center"
+                                                    Click="OnDeleteItem"
+                                                    DataContext="{Binding}"
+                                                    ToolTip="Delete" />
                                         </Grid>
                                     </Border>
                                 </DataTemplate>

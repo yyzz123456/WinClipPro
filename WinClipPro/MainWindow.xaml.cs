@@ -230,8 +230,10 @@ public partial class MainWindow : Window
             {
                 Clipboard.SetText(item.Content);
                 StatusText.Text = "Copied!";
-                await Task.Delay(1500);
-                StatusText.Text = "Ready";
+                await HideWithAnimation();
+                // Paste into the previously focused window
+                await Task.Delay(80);
+                System.Windows.Forms.SendKeys.SendWait("^v");
             }
             catch { }
             ClipboardList.SelectedIndex = -1;
@@ -244,8 +246,9 @@ public partial class MainWindow : Window
         {
             Clipboard.SetText(item.Content);
             StatusText.Text = "Copied!";
-            await Task.Delay(1500);
-            StatusText.Text = "Ready";
+            await HideWithAnimation();
+            await Task.Delay(80);
+            System.Windows.Forms.SendKeys.SendWait("^v");
         }
     }
 
