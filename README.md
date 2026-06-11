@@ -2,6 +2,8 @@
 
 A lightweight clipboard manager for Windows with Fluent Design aesthetics. Press **Alt+,** to access your clipboard history.
 
+**English** | [中文简体](README_zh_CN.md)
+
 ![](https://img.shields.io/badge/platform-Windows%2010%2B-blue)
 ![](https://img.shields.io/badge/.NET-10.0-purple)
 ![](https://img.shields.io/badge/Java-17-orange)
