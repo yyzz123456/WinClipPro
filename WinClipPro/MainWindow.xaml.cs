@@ -314,7 +314,7 @@ public partial class MainWindow : Window
 
     private async void OnDeactivated(object sender, EventArgs e)
     {
-        if (!_isClosing && !_isSelecting)
+        if (!_isClosing && !_isSelecting && !Topmost)
             await HideWithAnimation();
     }
 
