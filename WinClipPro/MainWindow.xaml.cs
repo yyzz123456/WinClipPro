@@ -310,6 +310,13 @@ public partial class MainWindow : Window
     }
 
     private async void OnHideWindow(object sender, RoutedEventArgs e) => await HideWithAnimation();
+
+    private void OnOpenSettings(object sender, RoutedEventArgs e)
+    {
+        var settings = new SettingsWindow { Owner = this };
+        settings.ShowDialog();
+    }
+
     private void OnToggleTopmost(object sender, RoutedEventArgs e)
     {
         Topmost = !Topmost;

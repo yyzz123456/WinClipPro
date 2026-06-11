@@ -1,0 +1,77 @@
+<Window x:Class="WinClipPro.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="http://schemas.modernwpf.com/2019"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        Title="WinClip Pro Settings"
+        Height="320" Width="360"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        Loaded="OnLoaded"
+        Deactivated="OnDeactivated">
+    <Grid>
+        <Border CornerRadius="8" Background="#F2F2F2" BorderBrush="#30000000" BorderThickness="1">
+            <Grid Margin="16">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <!-- Title -->
+                <TextBlock Text="Settings" FontSize="16" FontWeight="SemiBold"
+                           Foreground="#CC000000" Margin="0,0,0,12" />
+
+                <StackPanel Grid.Row="1">
+                    <!-- Hotkey -->
+                    <TextBlock Text="Hotkey" FontSize="12" FontWeight="Medium"
+                               Foreground="#80000000" Margin="0,0,0,4" />
+                    <Border Background="#18000000" CornerRadius="4" Padding="8,6" Margin="0,0,0,12">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Alt + ," Foreground="#CC000000" FontSize="13"
+                                       FontFamily="Consolas" />
+                            <Button Content="Change" Margin="12,0,0,0"
+                                    FontSize="11" Padding="8,2"
+                                    Background="#20000000" Foreground="#80000000"
+                                    BorderThickness="0" Cursor="Hand"
+                                    Click="OnChangeHotkey" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Retention -->
+                    <TextBlock Text="Keep history for" FontSize="12" FontWeight="Medium"
+                               Foreground="#80000000" Margin="0,0,0,4" />
+                    <Border Background="#18000000" CornerRadius="4" Padding="8,6" Margin="0,0,0,12">
+                        <ComboBox x:Name="RetentionBox"
+                                  SelectedIndex="0"
+                                  Background="Transparent" BorderThickness="0"
+                                  Foreground="#CC000000" FontSize="13">
+                            <ComboBoxItem>7 days</ComboBoxItem>
+                            <ComboBoxItem>14 days</ComboBoxItem>
+                            <ComboBoxItem>30 days</ComboBoxItem>
+                            <ComboBoxItem>90 days</ComboBoxItem>
+                            <ComboBoxItem>Forever</ComboBoxItem>
+                        </ComboBox>
+                    </Border>
+
+                    <!-- Auto start -->
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                        <TextBlock Text="Start with Windows" FontSize="12" FontWeight="Medium"
+                                   Foreground="#80000000" VerticalAlignment="Center" />
+                        <ui:ToggleSwitch x:Name="AutoStartSwitch" Margin="12,0,0,0"
+                                         OnContent="" OffContent="" />
+                    </StackPanel>
+
+                    <!-- Close button -->
+                    <Button Content="Done" HorizontalAlignment="Center"
+                            Width="80" Height="28"
+                            Background="#40000000" Foreground="#CC000000"
+                            BorderThickness="0" Cursor="Hand"
+                            FontSize="12" FontWeight="Medium"
+                            Click="OnDone" />
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

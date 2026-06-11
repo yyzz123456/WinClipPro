@@ -70,6 +70,10 @@
                                     Style="{StaticResource SystemButtonStyle}"
                                     Width="32" Height="32" Click="OnToggleTopmost"
                                     ToolTip="Toggle always on top" />
+                            <Button Content="&#xE713;" FontFamily="Segoe MDL2 Assets"
+                                    Style="{StaticResource SystemButtonStyle}"
+                                    Width="32" Height="32" Click="OnOpenSettings"
+                                    ToolTip="Settings" />
                             <Button Content="&#xE106;" FontFamily="Segoe MDL2 Assets"
                                     Style="{StaticResource SystemButtonStyle}"
                                     Width="32" Height="32" Click="OnHideWindow"
