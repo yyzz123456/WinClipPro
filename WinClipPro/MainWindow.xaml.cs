@@ -310,7 +310,13 @@ public partial class MainWindow : Window
     }
 
     private async void OnHideWindow(object sender, RoutedEventArgs e) => await HideWithAnimation();
-    private void OnToggleTopmost(object sender, RoutedEventArgs e) => Topmost = !Topmost;
+    private void OnToggleTopmost(object sender, RoutedEventArgs e)
+    {
+        Topmost = !Topmost;
+        PinBtn.Foreground = Topmost
+            ? new SolidColorBrush(Color.FromArgb(0xCC, 0, 0, 0))
+            : new SolidColorBrush(Color.FromArgb(0x80, 0, 0, 0));
+    }
 
     private async void OnDeactivated(object sender, EventArgs e)
     {

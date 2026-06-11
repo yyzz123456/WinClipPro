@@ -66,7 +66,7 @@
                                    FontSize="12" FontWeight="Medium"
                                    VerticalAlignment="Center" Margin="12,0,0,0" />
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                            <Button Content="&#xE718;" FontFamily="Segoe MDL2 Assets"
+                            <Button x:Name="PinBtn" Content="&#xE718;" FontFamily="Segoe MDL2 Assets"
                                     Style="{StaticResource SystemButtonStyle}"
                                     Width="32" Height="32" Click="OnToggleTopmost"
                                     ToolTip="Toggle always on top" />
