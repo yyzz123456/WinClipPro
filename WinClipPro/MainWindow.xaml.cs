@@ -33,6 +33,7 @@ public partial class MainWindow : Window
     private bool _isSelecting;
     private bool _isPasting;
     private bool _selfCopy;
+    private IntPtr _lastForegroundWindow;
 
     public MainWindow()
     {
@@ -77,6 +78,14 @@ public partial class MainWindow : Window
 
     [DllImport("user32.dll")]
     private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
+
+    private const uint WM_PASTE = 0x0302;
 
     private IntPtr WndProcHook(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
@@ -131,6 +140,9 @@ public partial class MainWindow : Window
     {
         if (_isAnimating) return;
         _isAnimating = true;
+
+        // Remember which window was active before we appeared
+        _lastForegroundWindow = GetForegroundWindow();
 
         _targetTop = CalculateTargetTop();
         _hiddenTop = _targetTop + Height + 20;
@@ -241,13 +253,9 @@ public partial class MainWindow : Window
             if (!_isPasting)
             {
                 _isPasting = true;
-                // Briefly hide so paste goes to the target window
-                Hide();
-                await Task.Delay(60);
-                System.Windows.Forms.SendKeys.SendWait("^v");
-                await Task.Delay(30);
-                Show();
-                Activate();
+                // Send WM_PASTE directly to the target window — no flicker
+                await Task.Delay(50);
+                SendMessage(_lastForegroundWindow, WM_PASTE, IntPtr.Zero, IntPtr.Zero);
                 _isPasting = false;
             }
         }
