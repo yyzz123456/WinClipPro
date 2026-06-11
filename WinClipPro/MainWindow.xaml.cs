@@ -8,9 +8,11 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
-using Svg;
 using WinClipPro.Models;
 using WinClipPro.Services;
+using Clipboard = System.Windows.Clipboard;
+using MenuItem = System.Windows.Controls.MenuItem;
+using Application = System.Windows.Application;
 
 namespace WinClipPro;
 
@@ -18,7 +20,7 @@ public partial class MainWindow : Window
 {
     private readonly TcpClientService _tcp;
     private readonly ObservableCollection<ClipboardItem> _items = new();
-    private H.NotifyIcon.TaskbarIcon? _trayIcon;
+    private System.Windows.Forms.NotifyIcon? _trayIcon;
     private System.Timers.Timer? _debounceTimer;
     private NativeClipboardService.ClipboardUpdateDelegate? _clipboardCallback;
     private bool _isClosing;
@@ -32,7 +34,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         _tcp = new TcpClientService();
 
-        try { _trayIcon = CreateTrayIcon(); } catch { }
+        CreateTrayIcon();
 
         _ = ListenForShowSignalAsync();
 
@@ -40,6 +42,14 @@ public partial class MainWindow : Window
 
         _debounceTimer = new System.Timers.Timer(200) { AutoReset = false };
         _debounceTimer.Elapsed += (_, _) => RunOnUi(async () => await DoSearchAsync());
+
+        Closing += (_, _) =>
+        {
+            _isClosing = true;
+            UnregisterHotKey(_hwnd, 1);
+            NativeClipboardService.StopClipboardMonitor();
+            _trayIcon?.Dispose();
+        };
     }
 
     private void OnSourceInitialized(object? sender, EventArgs e)
@@ -124,7 +134,6 @@ public partial class MainWindow : Window
         Activate();
         SearchBox.Focus();
 
-        // Slide up + fade in
         for (int i = 1; i <= 8; i++)
         {
             double t = i / 8.0;
@@ -144,7 +153,6 @@ public partial class MainWindow : Window
         if (_isAnimating || !IsVisible) return;
         _isAnimating = true;
 
-        // Fade out + slide down
         for (int i = 1; i <= 6; i++)
         {
             double t = i / 6.0;
@@ -266,99 +274,74 @@ public partial class MainWindow : Window
             DragMove();
     }
 
-    private async void OnHideWindow(object sender, RoutedEventArgs e)
-    {
-        await HideWithAnimation();
-    }
-
+    private async void OnHideWindow(object sender, RoutedEventArgs e) => await HideWithAnimation();
     private void OnToggleTopmost(object sender, RoutedEventArgs e) => Topmost = !Topmost;
 
     private async void OnDeactivated(object sender, EventArgs e)
     {
-        if (!_isClosing)
-            await HideWithAnimation();
+        if (!_isClosing) await HideWithAnimation();
     }
 
-    protected override void OnClosing(CancelEventArgs e)
-    {
-        _isClosing = true;
-        UnregisterHotKey(_hwnd, 1);
-        NativeClipboardService.StopClipboardMonitor();
-        _trayIcon?.Dispose();
-        base.OnClosing(e);
-    }
+    public void ShowAndFocus() => _ = ShowWithAnimation();
 
-    public void ShowAndFocus()
-    {
-        _ = ShowWithAnimation();
-    }
-
-    // Fire-and-forget async on UI thread without CS4014
     private void RunOnUi(Func<Task> action) => Dispatcher.BeginInvoke(() => _ = action());
 
-    private H.NotifyIcon.TaskbarIcon? CreateTrayIcon()
+    private void CreateTrayIcon()
     {
-        try
+        _trayIcon = new System.Windows.Forms.NotifyIcon
         {
-            var icon = new H.NotifyIcon.TaskbarIcon
-            {
-                ToolTipText = "WinClip Pro",
-                Visibility = Visibility.Visible
-            };
+            Text = "WinClip Pro",
+            Visible = true,
+            Icon = LoadTrayIcon()
+        };
 
-            icon.Icon = CreateTrayIconFromSvg();
+        var menu = new System.Windows.Forms.ContextMenuStrip();
+        var showItem = menu.Items.Add("Show / Hide");
+        showItem.Click += async (_, _) =>
+        {
+            if (IsVisible) await HideWithAnimation();
+            else await ShowWithAnimation();
+        };
 
-            var contextMenu = new ContextMenu();
-            var showItem = new MenuItem { Header = "Show / Hide" };
-            showItem.Click += async (_, _) =>
+        menu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
+
+        var exitItem = menu.Items.Add("Exit");
+        exitItem.Click += (_, _) =>
+        {
+            _isClosing = true;
+            _trayIcon?.Dispose();
+            Application.Current.Shutdown();
+        };
+
+        _trayIcon.ContextMenuStrip = menu;
+
+        _trayIcon.MouseClick += async (_, e) =>
+        {
+            if (e.Button == System.Windows.Forms.MouseButtons.Left)
             {
                 if (IsVisible) await HideWithAnimation();
                 else await ShowWithAnimation();
-            };
-            contextMenu.Items.Add(showItem);
-
-            var exitItem = new MenuItem { Header = "Exit" };
-            exitItem.Click += (_, _) =>
-            {
-                _isClosing = true;
-                _trayIcon?.Dispose();
-                Application.Current.Shutdown();
-            };
-            contextMenu.Items.Add(exitItem);
-
-            icon.ContextMenu = contextMenu;
-            icon.TrayLeftMouseDown += async (_, _) =>
-            {
-                if (IsVisible) await HideWithAnimation();
-                else await ShowWithAnimation();
-            };
-
-            return icon;
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"Tray icon failed: {ex.Message}");
-            return null;
-        }
+            }
+        };
     }
 
-    private static System.Drawing.Icon CreateTrayIconFromSvg()
+    private static System.Drawing.Icon LoadTrayIcon()
     {
-        const int size = 32;
-        var svgPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "1.svg");
-        if (!File.Exists(svgPath)) return CreateFallbackIcon();
-
         try
         {
+            var svgPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "1.svg");
+            if (!File.Exists(svgPath)) return CreateFallbackIcon();
+
             var svgDoc = Svg.SvgDocument.Open(svgPath);
-            using var bmp = svgDoc.Draw(size, size);
+            using var bmp = svgDoc.Draw(32, 32);
             IntPtr hIcon = bmp.GetHicon();
             var icon = (System.Drawing.Icon)System.Drawing.Icon.FromHandle(hIcon).Clone();
             DestroyIcon(hIcon);
             return icon;
         }
-        catch
+        catch (Exception ex)
         {
+            System.Diagnostics.Debug.WriteLine($"SVG tray icon failed: {ex.Message}");
             return CreateFallbackIcon();
         }
     }

@@ -1,6 +1,7 @@
 using System.IO.Pipes;
 using System.Windows;
 using WinClipPro.Services;
+using Application = System.Windows.Application;
 
 namespace WinClipPro;
 
