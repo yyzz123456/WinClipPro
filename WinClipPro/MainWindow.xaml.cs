@@ -292,52 +292,56 @@ public partial class MainWindow : Window
         _ = ShowWithAnimation();
     }
 
-    private H.NotifyIcon.TaskbarIcon CreateTrayIcon()
+    private H.NotifyIcon.TaskbarIcon? CreateTrayIcon()
     {
-        var icon = new H.NotifyIcon.TaskbarIcon
+        try
         {
-            ToolTipText = "WinClip Pro",
-            Visibility = Visibility.Visible
-        };
+            var icon = new H.NotifyIcon.TaskbarIcon
+            {
+                ToolTipText = "WinClip Pro",
+                Visibility = Visibility.Visible
+            };
 
-        using var ms = new MemoryStream();
-        DrawTrayIcon(ms);
-        ms.Position = 0;
-        var bmp = new System.Drawing.Bitmap(ms);
-        icon.Icon = System.Drawing.Icon.FromHandle(bmp.GetHicon());
+            icon.Icon = CreateTrayIconFromBitmap();
 
-        var contextMenu = new ContextMenu();
-        var showItem = new MenuItem { Header = "Show / Hide" };
-        showItem.Click += async (_, _) =>
+            var contextMenu = new ContextMenu();
+            var showItem = new MenuItem { Header = "Show / Hide" };
+            showItem.Click += async (_, _) =>
+            {
+                if (IsVisible) await HideWithAnimation();
+                else await ShowWithAnimation();
+            };
+            contextMenu.Items.Add(showItem);
+
+            var exitItem = new MenuItem { Header = "Exit" };
+            exitItem.Click += (_, _) =>
+            {
+                _isClosing = true;
+                _trayIcon?.Dispose();
+                Application.Current.Shutdown();
+            };
+            contextMenu.Items.Add(exitItem);
+
+            icon.ContextMenu = contextMenu;
+            icon.TrayLeftMouseDown += async (_, _) =>
+            {
+                if (IsVisible) await HideWithAnimation();
+                else await ShowWithAnimation();
+            };
+
+            return icon;
+        }
+        catch (Exception ex)
         {
-            if (IsVisible) await HideWithAnimation();
-            else await ShowWithAnimation();
-        };
-        contextMenu.Items.Add(showItem);
-
-        var exitItem = new MenuItem { Header = "Exit" };
-        exitItem.Click += (_, _) =>
-        {
-            _isClosing = true;
-            _trayIcon?.Dispose();
-            Application.Current.Shutdown();
-        };
-        contextMenu.Items.Add(exitItem);
-
-        icon.ContextMenu = contextMenu;
-        icon.TrayLeftMouseDown += async (_, _) =>
-        {
-            if (IsVisible) await HideWithAnimation();
-            else await ShowWithAnimation();
-        };
-
-        return icon;
+            System.Diagnostics.Debug.WriteLine($"Tray icon failed: {ex.Message}");
+            return null;
+        }
     }
 
-    private static void DrawTrayIcon(MemoryStream ms)
+    private static System.Drawing.Icon CreateTrayIconFromBitmap()
     {
         const int size = 32;
-        using var bmp = new System.Drawing.Bitmap(size, size);
+        var bmp = new System.Drawing.Bitmap(size, size);
         using var g = System.Drawing.Graphics.FromImage(bmp);
         g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
         g.Clear(System.Drawing.Color.Transparent);
@@ -346,8 +350,17 @@ public partial class MainWindow : Window
         g.DrawRectangle(pen, 6, 4, 20, 24);
         g.DrawLine(pen, 10, 14, 22, 14);
         g.DrawLine(pen, 10, 20, 18, 20);
-        bmp.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
+
+        IntPtr hIcon = bmp.GetHicon();
+        var icon = (System.Drawing.Icon)System.Drawing.Icon.FromHandle(hIcon).Clone();
+        // Clean up GDI handles
+        DestroyIcon(hIcon);
+        bmp.Dispose();
+        return icon;
     }
+
+    [DllImport("user32.dll")]
+    private static extern bool DestroyIcon(IntPtr hIcon);
 
     private async Task ListenForShowSignalAsync()
     {
