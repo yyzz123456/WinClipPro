@@ -8,13 +8,15 @@ namespace WinClipPro;
 public partial class App : Application
 {
     private static readonly string MutexName = "WinClipPro_SingleInstance";
+    private Mutex? _mutex;
     private JavaProcessManager? _javaManager;
 
     protected override async void OnStartup(StartupEventArgs e)
     {
-        using var mutex = new Mutex(true, MutexName, out bool createdNew);
+        _mutex = new Mutex(true, MutexName, out bool createdNew);
         if (!createdNew)
         {
+            // Signal existing instance to show window
             try
             {
                 using var client = new NamedPipeClientStream(".", "WinClipPro_ShowWindow", PipeDirection.Out);
@@ -26,7 +28,6 @@ public partial class App : Application
             return;
         }
 
-        // Start Java backend
         _javaManager = new JavaProcessManager();
         await _javaManager.StartAsync();
 
@@ -37,6 +38,7 @@ public partial class App : Application
     {
         _javaManager?.Dispose();
         NativeClipboardService.StopClipboardMonitor();
+        _mutex?.Dispose();
         base.OnExit(e);
     }
 }
