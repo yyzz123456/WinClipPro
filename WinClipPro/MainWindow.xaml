@@ -19,7 +19,7 @@
         <!-- System button style -->
         <Style x:Key="SystemButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="Transparent" />
-            <Setter Property="Foreground" Value="#CCFFFFFF" />
+            <Setter Property="Foreground" Value="#80000000" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="FontSize" Value="12" />
             <Setter Property="Padding" Value="0" />
@@ -37,17 +37,16 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#30FFFFFF" />
+                    <Setter Property="Background" Value="#20000000" />
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#20FFFFFF" />
+                    <Setter Property="Background" Value="#30000000" />
                 </Trigger>
             </Style.Triggers>
         </Style>
     </Window.Resources>
 
     <Grid>
-        <!-- Acrylic backdrop surface -->
         <Border x:Name="AcrylicBorder" CornerRadius="8" ClipToBounds="True">
             <Border.Background>
                 <SolidColorBrush Color="#00000000" />
@@ -61,9 +60,9 @@
 
                 <!-- Title bar -->
                 <Border x:Name="TitleBar" Grid.Row="0" Height="32"
-                        Background="#20000000" MouseLeftButtonDown="OnTitleBarDrag">
+                        Background="#0A000000" MouseLeftButtonDown="OnTitleBarDrag">
                     <Grid>
-                        <TextBlock Text="WinClip Pro" Foreground="#FFFFFF"
+                        <TextBlock Text="WinClip Pro" Foreground="#80000000"
                                    FontSize="12" FontWeight="Medium"
                                    VerticalAlignment="Center" Margin="12,0,0,0" />
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
@@ -80,30 +79,30 @@
                 </Border>
 
                 <!-- Main content -->
-                <Border Grid.Row="1" Margin="4,0,4,0" Background="#20000000" CornerRadius="6">
+                <Border Grid.Row="1" Margin="4,0,4,0" Background="#0A000000" CornerRadius="6">
                     <Grid Margin="8">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
 
-                        <!-- Search box with placeholder -->
+                        <!-- Search box -->
                         <Border Grid.Row="0" Margin="0,4,0,8" Height="32"
-                                Background="#30FFFFFF" CornerRadius="4"
-                                BorderBrush="#20FFFFFF" BorderThickness="1">
+                                Background="#10000000" CornerRadius="4"
+                                BorderBrush="#20000000" BorderThickness="1">
                             <Grid>
                                 <TextBlock Text="&#xE721;" FontFamily="Segoe MDL2 Assets"
-                                           Foreground="#80FFFFFF" FontSize="14"
+                                           Foreground="#60000000" FontSize="14"
                                            VerticalAlignment="Center" Margin="8,0,0,0" />
                                 <TextBlock x:Name="PlaceholderText"
                                            Text="Search clipboard..."
-                                           Foreground="#60FFFFFF" FontSize="13"
+                                           Foreground="#50000000" FontSize="13"
                                            VerticalAlignment="Center"
                                            Margin="28,0,0,0"
                                            IsHitTestVisible="False" />
                                 <TextBox x:Name="SearchBox"
                                          Background="Transparent" BorderThickness="0"
-                                         Foreground="#FFFFFFFF" CaretBrush="#FFFFFFFF"
+                                         Foreground="#CC000000" CaretBrush="#CC000000"
                                          FontSize="13" Padding="28,0,8,0"
                                          VerticalContentAlignment="Center"
                                          TextChanged="OnSearchTextChanged"
@@ -115,13 +114,13 @@
                         <!-- Clipboard list -->
                         <ListBox x:Name="ClipboardList" Grid.Row="1"
                                  Background="Transparent" BorderThickness="0"
-                                 Foreground="#FFFFFFFF" FontSize="12"
+                                 Foreground="#CC000000" FontSize="12"
                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                  VirtualizingPanel.ScrollUnit="Pixel"
                                  SelectionChanged="OnItemSelected">
                             <ListBox.ItemTemplate>
                                 <DataTemplate DataType="{x:Type models:ClipboardItem}">
-                                    <Border Background="#18FFFFFF" CornerRadius="4"
+                                    <Border Background="#0E000000" CornerRadius="4"
                                             Margin="0,2" Padding="8,6" Cursor="Hand">
                                         <Border.ContextMenu>
                                             <ContextMenu>
@@ -144,13 +143,13 @@
                                                 <RowDefinition Height="Auto" />
                                             </Grid.RowDefinitions>
                                             <TextBlock Text="{Binding Summary}"
-                                                       Foreground="#E0FFFFFF"
+                                                       Foreground="#CC000000"
                                                        TextTrimming="CharacterEllipsis" />
                                             <StackPanel Grid.Row="1" Orientation="Horizontal"
                                                         Margin="0,2,0,0">
                                                 <TextBlock Text="{Binding DateTime,
                                                     StringFormat='{}{0:MM-dd HH:mm}'}"
-                                                           Foreground="#60FFFFFF" FontSize="10" />
+                                                           Foreground="#70000000" FontSize="10" />
                                                 <TextBlock Text="  &#xE718;" FontFamily="Segoe MDL2 Assets"
                                                            Foreground="#80FFD700" FontSize="10"
                                                            Visibility="{Binding IsPinned,
@@ -161,7 +160,7 @@
                                                     Content="&#xE106;" FontFamily="Segoe MDL2 Assets"
                                                     Width="24" Height="24"
                                                     Background="Transparent"
-                                                    Foreground="#60FFFFFF"
+                                                    Foreground="#50000000"
                                                     BorderThickness="0"
                                                     Cursor="Hand"
                                                     VerticalAlignment="Center"
@@ -178,12 +177,12 @@
 
                 <!-- Status bar -->
                 <Border Grid.Row="2" Margin="4,4,4,8" Padding="8,4"
-                        Background="#18000000" CornerRadius="4">
+                        Background="#0A000000" CornerRadius="4">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock x:Name="StatusText" Text="Ready"
-                                   Foreground="#80FFFFFF" FontSize="11" />
+                                   Foreground="#60000000" FontSize="11" />
                         <TextBlock x:Name="ItemCount" Text=""
-                                   Foreground="#60FFFFFF" FontSize="11" Margin="8,0,0,0" />
+                                   Foreground="#50000000" FontSize="11" Margin="8,0,0,0" />
                     </StackPanel>
                 </Border>
             </Grid>
