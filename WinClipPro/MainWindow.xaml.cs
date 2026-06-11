@@ -313,9 +313,16 @@ public partial class MainWindow : Window
     private void OnToggleTopmost(object sender, RoutedEventArgs e)
     {
         Topmost = !Topmost;
-        PinBtn.Foreground = Topmost
-            ? new SolidColorBrush(System.Windows.Media.Color.FromArgb(0xCC, 0, 0, 0))
-            : new SolidColorBrush(System.Windows.Media.Color.FromArgb(0x80, 0, 0, 0));
+        if (Topmost)
+        {
+            PinBtn.Background = new SolidColorBrush(System.Windows.Media.Color.FromArgb(0x40, 0, 0, 0));
+            PinBtn.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromArgb(0xCC, 0, 0, 0));
+        }
+        else
+        {
+            PinBtn.Background = System.Windows.Media.Brushes.Transparent;
+            PinBtn.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromArgb(0x80, 0, 0, 0));
+        }
     }
 
     private async void OnDeactivated(object sender, EventArgs e)
