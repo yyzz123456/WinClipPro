@@ -15,7 +15,7 @@
 
   <ItemGroup>
     <PackageReference Include="ModernWpfUI" Version="0.9.7-preview.2" />
-    <PackageReference Include="Svg" Version="3.4.7" />
+    <PackageReference Include="Svg.Skia" Version="5.0.0" />
   </ItemGroup>
 
   <ItemGroup>

@@ -8,6 +8,8 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using SkiaSharp;
+using Svg.Skia;
 using WinClipPro.Models;
 using WinClipPro.Services;
 using Clipboard = System.Windows.Clipboard;
@@ -332,8 +334,24 @@ public partial class MainWindow : Window
             var svgPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "1.svg");
             if (!File.Exists(svgPath)) return CreateFallbackIcon();
 
-            var svgDoc = Svg.SvgDocument.Open(svgPath);
-            using var bmp = svgDoc.Draw(32, 32);
+            var svgDoc = new SKSvg();
+            svgDoc.Load(svgPath);
+            if (svgDoc.Picture == null) return CreateFallbackIcon();
+
+            // Render at 32x32
+            const int size = 32;
+            var info = new SKImageInfo(size, size);
+            using var surface = SKSurface.Create(info);
+            var canvas = surface.Canvas;
+            canvas.Clear(SKColors.Transparent);
+            float scale = size / svgDoc.Picture.CullRect.Width;
+            canvas.Scale(scale, scale);
+            canvas.DrawPicture(svgDoc.Picture);
+
+            using var image = surface.Snapshot();
+            using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+            using var ms = new MemoryStream(data.ToArray());
+            using var bmp = new System.Drawing.Bitmap(ms);
             IntPtr hIcon = bmp.GetHicon();
             var icon = (System.Drawing.Icon)System.Drawing.Icon.FromHandle(hIcon).Clone();
             DestroyIcon(hIcon);
