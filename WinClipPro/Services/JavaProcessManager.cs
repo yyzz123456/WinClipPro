@@ -9,24 +9,32 @@ public class JavaProcessManager : IDisposable
 
     public async Task<bool> StartAsync()
     {
-        using var checkClient = new TcpClientService();
-        var result = await checkClient.QueryAsync(0, 1);
-        if (result != null)
+        var logPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "WinClipPro", "startup.log");
+        void Log(string msg)
         {
-            Debug.WriteLine("Java backend already running");
-            return true;
+            try { Directory.CreateDirectory(Path.GetDirectoryName(logPath)!); File.AppendAllText(logPath, $"{DateTime.Now:HH:mm:ss} {msg}\n"); } catch { }
         }
+
+        Log("StartAsync called");
+        using var checkClient = new TcpClientService();
+        var check = await checkClient.SendAsync("query", new { lastId = 0, limit = 1 });
+        if (check != null) { Log("Java already running"); return true; }
+        Log("Java not running, will start");
 
         try
         {
-            // Find the Java backend directory relative to the EXE
             var exeDir = AppDomain.CurrentDomain.BaseDirectory;
+            Log($"BaseDirectory: {exeDir}");
             var javaDir = FindJavaDir(exeDir);
-            if (javaDir == null) return false;
+            if (javaDir == null) { Log("Java dir not found"); return false; }
 
-            var libPath = Path.Combine(javaDir, "lib", "*");
+            Log($"Java dir: {javaDir}");
+            var libPath = Path.Combine(javaDir, "JavaBackend", "lib", "*");
             var classpathDir = Path.Combine(javaDir, "JavaBackend", "out", "production", "JavaBackend");
             var classpath = $"{libPath};{classpathDir}";
+            Log($"Classpath: {classpath}");
 
             var psi = new ProcessStartInfo
             {
@@ -40,21 +48,23 @@ public class JavaProcessManager : IDisposable
             };
 
             _process = Process.Start(psi);
-            if (_process == null) return false;
+            if (_process == null) { Log("Process.Start returned null"); return false; }
+            Log($"Java process started PID: {_process.Id}");
 
             for (int i = 0; i < 20; i++)
             {
                 await Task.Delay(250);
                 using var client = new TcpClientService();
-                var check = await client.QueryAsync(0, 1);
-                if (check != null) return true;
+                var c = await client.SendAsync("query", new { lastId = 0, limit = 1 });
+                if (c != null) { Log("TCP check OK"); return true; }
             }
 
+            Log("TCP check timeout");
             return false;
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Failed to start Java: {ex.Message}");
+            Log($"Exception: {ex}");
             return false;
         }
     }
@@ -66,11 +76,21 @@ public class JavaProcessManager : IDisposable
         for (int i = 0; i < 6; i++)
         {
             var javaBackendDir = Path.Combine(dir, "JavaBackend", "out", "production", "JavaBackend");
-            if (Directory.Exists(javaBackendDir)) return dir;
+            Debug.WriteLine($"FindJavaDir checking: {javaBackendDir}");
+            if (Directory.Exists(javaBackendDir))
+            {
+                Debug.WriteLine($"Found Java at: {dir}");
+                return dir;
+            }
             var parent = Directory.GetParent(dir);
             if (parent == null) break;
             dir = parent.FullName;
         }
+        // Fallback: hardcoded project dir
+        var fallback = @"F:\Users\Public\Documents\JavaProj";
+        var fbCheck = Path.Combine(fallback, "JavaBackend", "out", "production", "JavaBackend");
+        Debug.WriteLine($"Fallback check: {fbCheck}");
+        if (Directory.Exists(fbCheck)) { Debug.WriteLine("Using fallback"); return fallback; }
         return null;
     }
 
