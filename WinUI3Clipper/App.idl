@@ -1,8 +1,0 @@
-namespace WinUI3Clipper
-{
-    [default_interface]
-    runtimeclass App : Microsoft.UI.Xaml.Application
-    {
-        App();
-    }
-}
