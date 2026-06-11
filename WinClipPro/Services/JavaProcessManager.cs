@@ -1,27 +1,14 @@
 using System.Diagnostics;
 using System.IO;
-using System.Runtime.InteropServices;
 
 namespace WinClipPro.Services;
 
 public class JavaProcessManager : IDisposable
 {
     private Process? _process;
-    private readonly string _baseDir;
-    private readonly string _jarPath;
-    private readonly string _classpathDir;
-
-    public JavaProcessManager()
-    {
-        _baseDir = Path.GetFullPath(Path.Combine(
-            AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", ".."));
-        _jarPath = Path.Combine(_baseDir, "JavaBackend", "out", "production", "JavaBackend");
-        _classpathDir = _jarPath;
-    }
 
     public async Task<bool> StartAsync()
     {
-        // Check if Java backend is already running
         using var checkClient = new TcpClientService();
         var result = await checkClient.QueryAsync(0, 1);
         if (result != null)
@@ -32,14 +19,20 @@ public class JavaProcessManager : IDisposable
 
         try
         {
-            var libPath = Path.Combine(_baseDir, "lib", "*");
-            var classpath = $"{libPath};{_classpathDir}";
+            // Find the Java backend directory relative to the EXE
+            var exeDir = AppDomain.CurrentDomain.BaseDirectory;
+            var javaDir = FindJavaDir(exeDir);
+            if (javaDir == null) return false;
+
+            var libPath = Path.Combine(javaDir, "lib", "*");
+            var classpathDir = Path.Combine(javaDir, "JavaBackend", "out", "production", "JavaBackend");
+            var classpath = $"{libPath};{classpathDir}";
 
             var psi = new ProcessStartInfo
             {
                 FileName = "java",
                 Arguments = $"-cp \"{classpath}\" Main",
-                WorkingDirectory = _baseDir,
+                WorkingDirectory = javaDir,
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 RedirectStandardOutput = true,
@@ -49,7 +42,6 @@ public class JavaProcessManager : IDisposable
             _process = Process.Start(psi);
             if (_process == null) return false;
 
-            // Wait for server to be ready
             for (int i = 0; i < 20; i++)
             {
                 await Task.Delay(250);
@@ -67,18 +59,34 @@ public class JavaProcessManager : IDisposable
         }
     }
 
+    private static string? FindJavaDir(string startDir)
+    {
+        // Walk up from EXE dir looking for JavaBackend/out/production/JavaBackend
+        var dir = startDir;
+        for (int i = 0; i < 6; i++)
+        {
+            var javaBackendDir = Path.Combine(dir, "JavaBackend", "out", "production", "JavaBackend");
+            if (Directory.Exists(javaBackendDir)) return dir;
+            var parent = Directory.GetParent(dir);
+            if (parent == null) break;
+            dir = parent.FullName;
+        }
+        return null;
+    }
+
     public void Stop()
     {
         if (_process is { HasExited: false })
         {
-            _process.Kill(entireProcessTree: true);
+            try
+            {
+                _process.Kill(entireProcessTree: true);
+            }
+            catch { }
             _process.Dispose();
             _process = null;
         }
     }
 
-    public void Dispose()
-    {
-        Stop();
-    }
+    public void Dispose() => Stop();
 }

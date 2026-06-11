@@ -24,4 +24,11 @@
     </Content>
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="..\x64\$(Configuration)\WinClipHook.dll" Condition="Exists('..\x64\$(Configuration)\WinClipHook.dll')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>
