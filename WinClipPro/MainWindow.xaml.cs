@@ -239,7 +239,6 @@ public partial class MainWindow : Window
             _selfCopy = true;
             Clipboard.SetText(item.Content);
             StatusText.Text = "Copied!";
-            await HideWithAnimation();
             if (!_isPasting)
             {
                 _isPasting = true;
@@ -266,7 +265,6 @@ public partial class MainWindow : Window
             _selfCopy = true;
             Clipboard.SetText(item.Content);
             StatusText.Text = "Copied!";
-            await HideWithAnimation();
             await Task.Delay(80);
             System.Windows.Forms.SendKeys.SendWait("^v");
             _isPasting = false;
