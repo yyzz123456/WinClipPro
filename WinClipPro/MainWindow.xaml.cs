@@ -21,7 +21,10 @@ public partial class MainWindow : Window
     private System.Timers.Timer? _debounceTimer;
     private NativeClipboardService.ClipboardUpdateDelegate? _clipboardCallback;
     private bool _isClosing;
+    private bool _isAnimating;
     private IntPtr _hwnd;
+    private double _targetTop;
+    private double _hiddenTop;
 
     public MainWindow()
     {
@@ -46,14 +49,11 @@ public partial class MainWindow : Window
         if (src != null)
             src.CompositionTarget!.BackgroundColor = Colors.Transparent;
 
-        // Start clipboard monitoring via C++ DLL
         StartNativeClipboardMonitor();
 
-        // Register global hotkey: Alt+,
         var hook = new HwndSourceHook(WndProcHook);
         src?.AddHook(hook);
-        bool ok = RegisterHotKey(_hwnd, 1, 0x0001, 0xBC); // MOD_ALT, VK_OEM_COMMA
-        System.Diagnostics.Debug.WriteLine($"RegisterHotKey Alt+, result: {ok}");
+        RegisterHotKey(_hwnd, 1, 0x0001, 0xBC); // MOD_ALT, VK_OEM_COMMA
     }
 
     [DllImport("user32.dll")]
@@ -67,7 +67,7 @@ public partial class MainWindow : Window
         const int WM_HOTKEY = 0x0312;
         if (msg == WM_HOTKEY && wParam.ToInt32() == 1)
         {
-            Dispatcher.Invoke(() => ShowAndFocus());
+            Dispatcher.Invoke(async () => await ShowWithAnimation());
             handled = true;
         }
         return IntPtr.Zero;
@@ -85,7 +85,6 @@ public partial class MainWindow : Window
                     if (id != null)
                     {
                         StatusText.Text = "Clipboard saved";
-                        // Refresh list if window is visible
                         if (IsVisible) await LoadItemsAsync();
                     }
                 }
@@ -93,29 +92,73 @@ public partial class MainWindow : Window
             });
         };
 
-        // Keep delegate alive to prevent GC
         GC.KeepAlive(_clipboardCallback);
         NativeClipboardService.StartClipboardMonitor(_clipboardCallback);
     }
 
-    private void OnLoaded(object sender, RoutedEventArgs e)
+    private double CalculateTargetTop()
     {
-        Opacity = 0;
-        Top += 20;
-        _ = AnimateShowAsync();
-        _ = LoadItemsAsync();
+        var workArea = SystemParameters.WorkArea;
+        return workArea.Bottom - Height - 10;
     }
 
-    private async Task AnimateShowAsync()
+    private double CalculateTargetLeft()
     {
-        for (int i = 0; i < 10; i++)
-        {
-            Opacity += 0.1;
-            Top -= 2;
-            await Task.Delay(15);
-        }
-        Opacity = 1;
+        var workArea = SystemParameters.WorkArea;
+        return workArea.Right - Width - 10;
     }
+
+    public async Task ShowWithAnimation()
+    {
+        if (_isAnimating) return;
+        _isAnimating = true;
+
+        _targetTop = CalculateTargetTop();
+        _hiddenTop = _targetTop + Height + 20;
+
+        Left = CalculateTargetLeft();
+        Top = _hiddenTop;
+        Opacity = 0;
+        Show();
+        Activate();
+        SearchBox.Focus();
+
+        // Slide up + fade in
+        for (int i = 1; i <= 8; i++)
+        {
+            double t = i / 8.0;
+            Top = _hiddenTop + (_targetTop - _hiddenTop) * EaseOutCubic(t);
+            Opacity = t;
+            await Task.Delay(12);
+        }
+        Top = _targetTop;
+        Opacity = 1;
+
+        _isAnimating = false;
+        await LoadItemsAsync();
+    }
+
+    public async Task HideWithAnimation()
+    {
+        if (_isAnimating || !IsVisible) return;
+        _isAnimating = true;
+
+        // Fade out + slide down
+        for (int i = 1; i <= 6; i++)
+        {
+            double t = i / 6.0;
+            Opacity = 1 - t;
+            Top = _targetTop + (Height + 20) * EaseInCubic(t);
+            await Task.Delay(10);
+        }
+        Opacity = 0;
+        Hide();
+
+        _isAnimating = false;
+    }
+
+    private static double EaseOutCubic(double t) => 1 - Math.Pow(1 - t, 3);
+    private static double EaseInCubic(double t) => Math.Pow(t, 3);
 
     private async Task LoadItemsAsync()
     {
@@ -222,13 +265,17 @@ public partial class MainWindow : Window
             DragMove();
     }
 
-    private void OnHideWindow(object sender, RoutedEventArgs e) => Hide();
+    private async void OnHideWindow(object sender, RoutedEventArgs e)
+    {
+        await HideWithAnimation();
+    }
 
     private void OnToggleTopmost(object sender, RoutedEventArgs e) => Topmost = !Topmost;
 
-    private void OnDeactivated(object sender, EventArgs e)
+    private async void OnDeactivated(object sender, EventArgs e)
     {
-        if (!_isClosing) Hide();
+        if (!_isClosing)
+            await HideWithAnimation();
     }
 
     protected override void OnClosing(CancelEventArgs e)
@@ -242,9 +289,7 @@ public partial class MainWindow : Window
 
     public void ShowAndFocus()
     {
-        Show();
-        Activate();
-        SearchBox.Focus();
+        _ = ShowWithAnimation();
     }
 
     private H.NotifyIcon.TaskbarIcon CreateTrayIcon()
@@ -263,7 +308,11 @@ public partial class MainWindow : Window
 
         var contextMenu = new ContextMenu();
         var showItem = new MenuItem { Header = "Show / Hide" };
-        showItem.Click += (_, _) => { if (IsVisible) Hide(); else ShowAndFocus(); };
+        showItem.Click += async (_, _) =>
+        {
+            if (IsVisible) await HideWithAnimation();
+            else await ShowWithAnimation();
+        };
         contextMenu.Items.Add(showItem);
 
         var exitItem = new MenuItem { Header = "Exit" };
@@ -276,7 +325,11 @@ public partial class MainWindow : Window
         contextMenu.Items.Add(exitItem);
 
         icon.ContextMenu = contextMenu;
-        icon.TrayLeftMouseDown += (_, _) => { if (IsVisible) Hide(); else ShowAndFocus(); };
+        icon.TrayLeftMouseDown += async (_, _) =>
+        {
+            if (IsVisible) await HideWithAnimation();
+            else await ShowWithAnimation();
+        };
 
         return icon;
     }
@@ -306,7 +359,7 @@ public partial class MainWindow : Window
                     PipeDirection.In, 1, PipeTransmissionMode.Byte,
                     PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
                 await server.WaitForConnectionAsync();
-                Dispatcher.Invoke(() => ShowAndFocus());
+                Dispatcher.Invoke(async () => await ShowWithAnimation());
             }
             catch { }
         }

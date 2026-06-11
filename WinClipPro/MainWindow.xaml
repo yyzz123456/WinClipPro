@@ -12,7 +12,6 @@
         MinHeight="300" MinWidth="280"
         Topmost="True"
         ShowInTaskbar="False"
-        Loaded="OnLoaded"
         Deactivated="OnDeactivated">
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
