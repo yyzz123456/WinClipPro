@@ -30,6 +30,8 @@ public partial class MainWindow : Window
     private IntPtr _hwnd;
     private double _targetTop;
     private double _hiddenTop;
+    private bool _isSelecting;
+    private bool _isPasting;
 
     public MainWindow()
     {
@@ -224,32 +226,43 @@ public partial class MainWindow : Window
 
     private async void OnItemSelected(object sender, SelectionChangedEventArgs e)
     {
-        if (ClipboardList.SelectedItem is ClipboardItem item)
+        if (_isSelecting || e.AddedItems.Count == 0) return;
+        if (ClipboardList.SelectedItem is not ClipboardItem item) return;
+
+        _isSelecting = true;
+        try
         {
-            try
+            Clipboard.SetText(item.Content);
+            StatusText.Text = "Copied!";
+            await HideWithAnimation();
+            if (!_isPasting)
             {
-                Clipboard.SetText(item.Content);
-                StatusText.Text = "Copied!";
-                await HideWithAnimation();
-                // Paste into the previously focused window
+                _isPasting = true;
                 await Task.Delay(80);
                 System.Windows.Forms.SendKeys.SendWait("^v");
+                _isPasting = false;
             }
-            catch { }
+        }
+        catch { }
+        finally
+        {
             ClipboardList.SelectedIndex = -1;
+            _isSelecting = false;
         }
     }
 
     private async void OnCopyItem(object sender, RoutedEventArgs e)
     {
         var item = (sender as FrameworkElement)?.DataContext as ClipboardItem;
-        if (item != null)
+        if (item != null && !_isPasting)
         {
+            _isPasting = true;
             Clipboard.SetText(item.Content);
             StatusText.Text = "Copied!";
             await HideWithAnimation();
             await Task.Delay(80);
             System.Windows.Forms.SendKeys.SendWait("^v");
+            _isPasting = false;
         }
     }
 
@@ -287,7 +300,8 @@ public partial class MainWindow : Window
 
     private async void OnDeactivated(object sender, EventArgs e)
     {
-        if (!_isClosing) await HideWithAnimation();
+        if (!_isClosing && !_isSelecting)
+            await HideWithAnimation();
     }
 
     public void ShowAndFocus() => _ = ShowWithAnimation();
