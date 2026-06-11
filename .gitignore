@@ -15,9 +15,7 @@ publish/
 *.exp
 *.suo
 *.sln.docstates
-*.user
 *.userosscache
-*.sln.docstates
 *.userprefs
 Debug/
 Release/
@@ -36,6 +34,20 @@ build/
 .idea/
 *.iml
 .vscode/
+
+# Local Claude AI settings (machine-specific paths)
+.claude/settings.local.json
+.claude/mcp.json
+
+# NuGet package caches (should NOT be committed)
+**/packages/
+
+# WinRT / WinUI3 generated files (auto-generated, machine-specific paths inside)
+**/Generated Files/
+*_h.h
+*_g.cpp
+*_g.h
+*_g.hpp
 
 # OS
 .DS_Store

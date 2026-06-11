@@ -86,11 +86,6 @@ public class JavaProcessManager : IDisposable
             if (parent == null) break;
             dir = parent.FullName;
         }
-        // Fallback: hardcoded project dir
-        var fallback = @"F:\Users\Public\Documents\JavaProj";
-        var fbCheck = Path.Combine(fallback, "JavaBackend", "out", "production", "JavaBackend");
-        Debug.WriteLine($"Fallback check: {fbCheck}");
-        if (Directory.Exists(fbCheck)) { Debug.WriteLine("Using fallback"); return fallback; }
         return null;
     }
 
