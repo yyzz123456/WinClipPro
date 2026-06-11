@@ -8,6 +8,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using Svg;
 using WinClipPro.Models;
 using WinClipPro.Services;
 
@@ -38,7 +39,7 @@ public partial class MainWindow : Window
         SourceInitialized += OnSourceInitialized;
 
         _debounceTimer = new System.Timers.Timer(200) { AutoReset = false };
-        _debounceTimer.Elapsed += (_, _) => Dispatcher.Invoke(async () => await DoSearchAsync());
+        _debounceTimer.Elapsed += (_, _) => RunOnUi(async () => await DoSearchAsync());
     }
 
     private void OnSourceInitialized(object? sender, EventArgs e)
@@ -67,7 +68,7 @@ public partial class MainWindow : Window
         const int WM_HOTKEY = 0x0312;
         if (msg == WM_HOTKEY && wParam.ToInt32() == 1)
         {
-            Dispatcher.Invoke(async () => await ShowWithAnimation());
+            RunOnUi(async () => await ShowWithAnimation());
             handled = true;
         }
         return IntPtr.Zero;
@@ -77,7 +78,7 @@ public partial class MainWindow : Window
     {
         _clipboardCallback = (content, _, timestamp, hash) =>
         {
-            Dispatcher.Invoke(async () =>
+            RunOnUi(async () =>
             {
                 try
                 {
@@ -292,6 +293,9 @@ public partial class MainWindow : Window
         _ = ShowWithAnimation();
     }
 
+    // Fire-and-forget async on UI thread without CS4014
+    private void RunOnUi(Func<Task> action) => Dispatcher.BeginInvoke(() => _ = action());
+
     private H.NotifyIcon.TaskbarIcon? CreateTrayIcon()
     {
         try
@@ -302,7 +306,7 @@ public partial class MainWindow : Window
                 Visibility = Visibility.Visible
             };
 
-            icon.Icon = CreateTrayIconFromBitmap();
+            icon.Icon = CreateTrayIconFromSvg();
 
             var contextMenu = new ContextMenu();
             var showItem = new MenuItem { Header = "Show / Hide" };
@@ -338,22 +342,38 @@ public partial class MainWindow : Window
         }
     }
 
-    private static System.Drawing.Icon CreateTrayIconFromBitmap()
+    private static System.Drawing.Icon CreateTrayIconFromSvg()
     {
         const int size = 32;
-        var bmp = new System.Drawing.Bitmap(size, size);
-        using var g = System.Drawing.Graphics.FromImage(bmp);
-        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-        g.Clear(System.Drawing.Color.Transparent);
+        var svgPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "1.svg");
+        if (!File.Exists(svgPath)) return CreateFallbackIcon();
 
+        try
+        {
+            var svgDoc = Svg.SvgDocument.Open(svgPath);
+            using var bmp = svgDoc.Draw(size, size);
+            IntPtr hIcon = bmp.GetHicon();
+            var icon = (System.Drawing.Icon)System.Drawing.Icon.FromHandle(hIcon).Clone();
+            DestroyIcon(hIcon);
+            return icon;
+        }
+        catch
+        {
+            return CreateFallbackIcon();
+        }
+    }
+
+    private static System.Drawing.Icon CreateFallbackIcon()
+    {
+        var bmp = new System.Drawing.Bitmap(32, 32);
+        using var g = System.Drawing.Graphics.FromImage(bmp);
+        g.Clear(System.Drawing.Color.Transparent);
         using var pen = new System.Drawing.Pen(System.Drawing.Color.White, 2);
         g.DrawRectangle(pen, 6, 4, 20, 24);
         g.DrawLine(pen, 10, 14, 22, 14);
         g.DrawLine(pen, 10, 20, 18, 20);
-
         IntPtr hIcon = bmp.GetHicon();
         var icon = (System.Drawing.Icon)System.Drawing.Icon.FromHandle(hIcon).Clone();
-        // Clean up GDI handles
         DestroyIcon(hIcon);
         bmp.Dispose();
         return icon;
@@ -372,7 +392,7 @@ public partial class MainWindow : Window
                     PipeDirection.In, 1, PipeTransmissionMode.Byte,
                     PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
                 await server.WaitForConnectionAsync();
-                Dispatcher.Invoke(async () => await ShowWithAnimation());
+                RunOnUi(async () => await ShowWithAnimation());
             }
             catch { }
         }
