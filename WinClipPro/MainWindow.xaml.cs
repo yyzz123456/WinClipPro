@@ -33,7 +33,6 @@ public partial class MainWindow : Window
     private bool _isSelecting;
     private bool _isPasting;
     private bool _selfCopy;
-    private IntPtr _lastForegroundWindow;
 
     public MainWindow()
     {
@@ -80,18 +79,10 @@ public partial class MainWindow : Window
     private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
 
     [DllImport("user32.dll")]
-    private static extern IntPtr GetForegroundWindow();
+    private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 
-    [DllImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool SetForegroundWindow(IntPtr hWnd);
-
-    [DllImport("user32.dll")]
-    private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
-
-    private const byte VK_CONTROL = 0x11;
-    private const byte VK_V = 0x56;
-    private const uint KEYEVENTF_KEYUP = 0x0002;
+    private const int SW_HIDE = 0;
+    private const int SW_SHOW = 5;
 
 
     private IntPtr WndProcHook(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
@@ -147,8 +138,6 @@ public partial class MainWindow : Window
     {
         if (_isAnimating) return;
         _isAnimating = true;
-
-        _lastForegroundWindow = GetForegroundWindow();
 
         _targetTop = CalculateTargetTop();
         _hiddenTop = _targetTop + Height + 20;
@@ -259,14 +248,9 @@ public partial class MainWindow : Window
             if (!_isPasting)
             {
                 _isPasting = true;
-                // Quick opacity switch — near-invisible
-                // Switch focus to target, paste, switch back — all in one go
-                SetForegroundWindow(_lastForegroundWindow);
-                keybd_event(VK_CONTROL, 0, 0, UIntPtr.Zero);
-                keybd_event(VK_V, 0, 0, UIntPtr.Zero);
-                keybd_event(VK_V, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
-                keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
-                SetForegroundWindow(_hwnd);
+                ShowWindow(_hwnd, SW_HIDE);
+                System.Windows.Forms.SendKeys.SendWait("^v");
+                ShowWindow(_hwnd, SW_SHOW);
                 _isPasting = false;
             }
         }
@@ -288,12 +272,9 @@ public partial class MainWindow : Window
             _selfCopy = true;
             Clipboard.SetText(item.Content);
             StatusText.Text = "Copied!";
-            Opacity = 0;
-            await Task.Delay(15);
-            System.Windows.Forms.SendKeys.Send("^v");
-            await Task.Delay(5);
-            Opacity = 1;
-            Activate();
+            ShowWindow(_hwnd, SW_HIDE);
+            System.Windows.Forms.SendKeys.SendWait("^v");
+            ShowWindow(_hwnd, SW_SHOW);
             _isPasting = false;
             _selfCopy = false;
         }
