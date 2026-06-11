@@ -140,7 +140,6 @@ public partial class MainWindow : Window
         Opacity = 0;
         Show();
         Activate();
-        SearchBox.Focus();
 
         for (int i = 1; i <= 8; i++)
         {
@@ -242,8 +241,13 @@ public partial class MainWindow : Window
             if (!_isPasting)
             {
                 _isPasting = true;
-                await Task.Delay(80);
+                // Briefly hide so paste goes to the target window
+                Hide();
+                await Task.Delay(60);
                 System.Windows.Forms.SendKeys.SendWait("^v");
+                await Task.Delay(30);
+                Show();
+                Activate();
                 _isPasting = false;
             }
         }
@@ -265,8 +269,12 @@ public partial class MainWindow : Window
             _selfCopy = true;
             Clipboard.SetText(item.Content);
             StatusText.Text = "Copied!";
-            await Task.Delay(80);
+            Hide();
+            await Task.Delay(60);
             System.Windows.Forms.SendKeys.SendWait("^v");
+            await Task.Delay(30);
+            Show();
+            Activate();
             _isPasting = false;
             _selfCopy = false;
         }
