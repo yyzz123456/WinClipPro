@@ -8,8 +8,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
-using SkiaSharp;
-using Svg.Skia;
+
 using WinClipPro.Models;
 using WinClipPro.Services;
 using Clipboard = System.Windows.Clipboard;
@@ -400,57 +399,13 @@ public partial class MainWindow : Window
     {
         try
         {
-            var svgPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "1.svg");
-            if (!File.Exists(svgPath)) return CreateFallbackIcon();
-
-            var svgDoc = new SKSvg();
-            svgDoc.Load(svgPath);
-            if (svgDoc.Picture == null) return CreateFallbackIcon();
-
-            // Render at 32x32
-            const int size = 32;
-            var info = new SKImageInfo(size, size);
-            using var surface = SKSurface.Create(info);
-            var canvas = surface.Canvas;
-            canvas.Clear(SKColors.Transparent);
-            float scale = size / svgDoc.Picture.CullRect.Width;
-            canvas.Scale(scale, scale);
-            canvas.DrawPicture(svgDoc.Picture);
-
-            using var image = surface.Snapshot();
-            using var data = image.Encode(SKEncodedImageFormat.Png, 100);
-            using var ms = new MemoryStream(data.ToArray());
-            using var bmp = new System.Drawing.Bitmap(ms);
-            IntPtr hIcon = bmp.GetHicon();
-            var icon = (System.Drawing.Icon)System.Drawing.Icon.FromHandle(hIcon).Clone();
-            DestroyIcon(hIcon);
-            return icon;
+            var iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "app.ico");
+            if (File.Exists(iconPath))
+                return new System.Drawing.Icon(iconPath);
         }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"SVG tray icon failed: {ex.Message}");
-            return CreateFallbackIcon();
-        }
+        catch { }
+        return System.Drawing.SystemIcons.Application;
     }
-
-    private static System.Drawing.Icon CreateFallbackIcon()
-    {
-        var bmp = new System.Drawing.Bitmap(32, 32);
-        using var g = System.Drawing.Graphics.FromImage(bmp);
-        g.Clear(System.Drawing.Color.Transparent);
-        using var pen = new System.Drawing.Pen(System.Drawing.Color.White, 2);
-        g.DrawRectangle(pen, 6, 4, 20, 24);
-        g.DrawLine(pen, 10, 14, 22, 14);
-        g.DrawLine(pen, 10, 20, 18, 20);
-        IntPtr hIcon = bmp.GetHicon();
-        var icon = (System.Drawing.Icon)System.Drawing.Icon.FromHandle(hIcon).Clone();
-        DestroyIcon(hIcon);
-        bmp.Dispose();
-        return icon;
-    }
-
-    [DllImport("user32.dll")]
-    private static extern bool DestroyIcon(IntPtr hIcon);
 
     private async Task ListenForShowSignalAsync()
     {

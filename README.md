@@ -10,7 +10,7 @@ A lightweight clipboard manager for Windows with Fluent Design aesthetics. Press
 ![](https://img.shields.io/badge/C%2B%2B-17-blue)
 
 > [!WARNING]
-> This tool is only a course assignment completed with the help of AI. It cannot guarantee stable operation under all circumstances. Please be sure to take note before use.
+> This tool is only a course assignment completed with the help of AI. It cannot guarantee stable operation under all circumstances. Please be aware of this before use.
 
 ## Architecture
 

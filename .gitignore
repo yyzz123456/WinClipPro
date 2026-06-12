@@ -54,6 +54,10 @@ build/
 Thumbs.db
 Desktop.ini
 
+# Release artifacts
+*.zip
+WinClipPro/release/
+
 # Temp
 *.tmp
 *.swp

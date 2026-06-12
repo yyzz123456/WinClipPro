@@ -10,13 +10,17 @@ $Root = Split-Path -Parent $PSScriptRoot
 
 Write-Host "=== Building WinClip Pro v$Version ===" -ForegroundColor Cyan
 
+# 0. Clean output directory
+Write-Host "[1/6] Cleaning output directory..." -ForegroundColor Yellow
+if (Test-Path $OutputDir) { Remove-Item -Recurse -Force $OutputDir }
+
 # 1. Publish WPF as single-file EXE
-Write-Host "[1/3] Publishing WPF app..." -ForegroundColor Yellow
+Write-Host "[2/6] Publishing WPF app..." -ForegroundColor Yellow
 dotnet publish -c Release -o $OutputDir
 if ($LASTEXITCODE -ne 0) { throw "Publish failed" }
 
 # 2. Copy C++ DLL
-Write-Host "[2/3] Copying native DLLs..." -ForegroundColor Yellow
+Write-Host "[3/6] Copying native DLLs..." -ForegroundColor Yellow
 $DllSrc = "$Root\x64\Release\WinClipHook.dll"
 if (Test-Path $DllSrc) {
     Copy-Item $DllSrc $OutputDir -Force
@@ -25,7 +29,7 @@ if (Test-Path $DllSrc) {
 }
 
 # 3. Copy Java backend
-Write-Host "[3/3] Copying Java backend..." -ForegroundColor Yellow
+Write-Host "[4/6] Copying Java backend..." -ForegroundColor Yellow
 $JavaOut = "$OutputDir\JavaBackend"
 $JavaSrc = "$Root\JavaBackend"
 New-Item -ItemType Directory -Path "$JavaOut\out\production\JavaBackend" -Force | Out-Null
@@ -33,8 +37,12 @@ Copy-Item "$JavaSrc\out\production\JavaBackend\*" "$JavaOut\out\production\JavaB
 New-Item -ItemType Directory -Path "$JavaOut\lib" -Force | Out-Null
 Copy-Item "$JavaSrc\lib\*" "$JavaOut\lib\" -Force
 
-# 4. Create zip
-Write-Host "Creating release zip..." -ForegroundColor Yellow
+# 4. Remove debug symbols (save ~100MB)
+Write-Host "[5/6] Removing PDB files..." -ForegroundColor Yellow
+Get-ChildItem -Path $OutputDir -Filter *.pdb -Recurse | Remove-Item -Force
+
+# 5. Create zip
+Write-Host "[6/6] Creating release zip..." -ForegroundColor Yellow
 $ZipName = "WinClipPro-v$Version.zip"
 Compress-Archive -Path $OutputDir\* -DestinationPath $ZipName -Force
 
