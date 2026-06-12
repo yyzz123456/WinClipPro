@@ -31,6 +31,12 @@ public class JavaProcessManager : IDisposable
             if (javaDir == null) { Log("Java dir not found"); return false; }
 
             Log($"Java dir: {javaDir}");
+
+            // Prefer bundled JRE, fall back to system PATH
+            var bundledJava = Path.Combine(javaDir, "JavaBackend", "jre", "bin", "java.exe");
+            var javaExe = File.Exists(bundledJava) ? bundledJava : "java";
+            Log($"Using Java: {javaExe}");
+
             var libPath = Path.Combine(javaDir, "JavaBackend", "lib", "*");
             var classpathDir = Path.Combine(javaDir, "JavaBackend", "out", "production", "JavaBackend");
             var classpath = $"{libPath};{classpathDir}";
@@ -38,7 +44,7 @@ public class JavaProcessManager : IDisposable
 
             var psi = new ProcessStartInfo
             {
-                FileName = "java",
+                FileName = javaExe,
                 Arguments = $"-cp \"{classpath}\" Main",
                 WorkingDirectory = javaDir,
                 UseShellExecute = false,
