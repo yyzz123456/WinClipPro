@@ -57,6 +57,7 @@ Desktop.ini
 # Release artifacts
 *.zip
 WinClipPro/release/
+pic/
 
 # Temp
 *.tmp
