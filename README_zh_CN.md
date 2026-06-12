@@ -43,13 +43,22 @@ C# WPF 前端             C++ 钩子 DLL           Java 后端
 - **深色文字** 浅色亚克力背景，亮暗模式均可读
 - **单实例** 重复启动只会唤出已有窗口
 
-## 环境要求
+## 运行要求
+
+| 组件 | 说明 |
+|------|------|
+| Windows 10+ | 仅支持 x64 |
+| .NET 10 Desktop Runtime | [下载](https://dotnet.microsoft.com/en-us/download/dotnet/10.0) |
+| Visual C++ Redistributable | [下载](https://aka.ms/vs/17/release/vc_redist.x64.exe)（钩子 DLL 依赖） |
+| Java 17+ (JRE) | [下载](https://adoptium.net/) |
+
+## 构建环境
 
 | 组件 | 用途 |
 |------|------|
 | .NET 10 SDK | WPF 编译 |
 | Visual Studio 2026 | C++ DLL 编译 |
-| Java 17+ (JDK) | 后端运行 |
+| Java 17+ (JDK) | Java 编译 |
 | IntelliJ IDEA | Java 编译 |
 
 ## 构建与运行
@@ -93,7 +102,7 @@ dotnet publish -c Debug -o publish   # 单文件 EXE
 WinClipPro/           WPF 前端 (.NET 10)
   ├── Models/         数据模型
   ├── Services/       TCP 客户端、剪贴板 P/Invoke、设置、Java 启动器
-  └── Resources/      SVG 托盘图标
+  └── Resources/      应用图标
 WinClipHook/          C++ 钩子 DLL (VS 2026)
   ├── ClipboardMonitor.*   剪贴板监听 (WM_CLIPBOARDUPDATE)
   ├── HotkeyManager.*      全局热键注册

@@ -43,13 +43,22 @@ C# WPF Frontend          C++ Hook DLL           Java Backend
 - **Dark text** on light acrylic — readable in both light and dark modes
 - **Single instance** — launching again just shows the existing window
 
-## Prerequisites
+## System Requirements
+
+| Component | Notes |
+|-----------|-------|
+| Windows 10+ | x64 only |
+| .NET 10 Desktop Runtime | [Download](https://dotnet.microsoft.com/en-us/download/dotnet/10.0) |
+| Visual C++ Redistributable | [Download](https://aka.ms/vs/17/release/vc_redist.x64.exe) (required by the hook DLL) |
+| Java 17+ (JRE) | [Download](https://adoptium.net/) |
+
+## Build Prerequisites
 
 | Component | Required |
 |-----------|----------|
 | .NET 10 SDK | WPF build |
 | Visual Studio 2026 | C++ DLL build |
-| Java 17+ (JDK) | Backend runtime |
+| Java 17+ (JDK) | Backend compilation |
 | IntelliJ IDEA | Java compilation |
 
 ## Build & Run
@@ -93,7 +102,7 @@ Settings are persisted to `%LOCALAPPDATA%\WinClipPro\settings.json`.
 WinClipPro/           WPF frontend (.NET 10)
   ├── Models/         Data models
   ├── Services/       TCP client, clipboard P/Invoke, settings, Java launcher
-  └── Resources/      SVG tray icon
+  └── Resources/      App icon
 WinClipHook/          C++ hook DLL (VS 2026)
   ├── ClipboardMonitor.*   WM_CLIPBOARDUPDATE listener
   ├── HotkeyManager.*      Global hotkey registration
